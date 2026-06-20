@@ -29,15 +29,17 @@ export function createMinioProvider(): ResourceProvider {
       try { await client(ctx).makeBucket(bucket(n, ctx)) } catch (e) { wrap(ctx, e) }
     },
     destroy: async (n, ctx) => {
-      const c = client(ctx); const b = bucket(n, ctx)
-      const stream = c.listObjectsV2(b, '', true)
-      const names: string[] = await new Promise((res, rej) => {
-        const acc: string[] = []
-        stream.on('data', (o) => o.name && acc.push(o.name))
-        stream.on('end', () => res(acc)); stream.on('error', rej)
-      })
-      if (names.length) await c.removeObjects(b, names)
-      await c.removeBucket(b)
+      try {
+        const c = client(ctx); const b = bucket(n, ctx)
+        const stream = c.listObjectsV2(b, '', true)
+        const names: string[] = await new Promise((res, rej) => {
+          const acc: string[] = []
+          stream.on('data', (o) => o.name && acc.push(o.name))
+          stream.on('end', () => res(acc)); stream.on('error', rej)
+        })
+        if (names.length) await c.removeObjects(b, names)
+        await c.removeBucket(b)
+      } catch (e) { wrap(ctx, e) }
     },
     envVars: (n, ctx) => {
       const m = ctx.config.infra.minio!
