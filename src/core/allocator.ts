@@ -7,16 +7,17 @@ import { BkError, Codes } from './errors.js'
 export async function resolveSet(
   providers: ResourceProvider[], ctx: Ctx, state: StateFile, maxAttempts: number,
 ): Promise<{ n: number; reuse: boolean }> {
-  let { n, reuse } = pickNumber(state)
+  const work: StateFile = { ...state, sets: { ...state.sets } }
+  let { n, reuse } = pickNumber(work)
   // free set 复用：信任快照、不再探活
   if (reuse) return { n, reuse }
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     let ok = true
     for (const p of providers) { if (!(await p.probe(n, ctx))) { ok = false; break } }
     if (ok) return { n, reuse: false }
-    // 该号被占，标记为"占用"再选下一个空洞
-    state.sets[String(n)] = { status: 'allocated', owner: null, resources: {}, created_at: '' }
-    n = pickNumber(state).n
+    // 该号被占，标记为"占用"再选下一个空洞（写入副本，不污染调用者 state）
+    work.sets[String(n)] = { status: 'allocated', owner: null, resources: {}, created_at: '' }
+    n = pickNumber(work).n
   }
   throw new BkError(Codes.PROBE_EXHAUSTED,
     `连试 ${maxAttempts} 个编号都被占用，放弃。`,

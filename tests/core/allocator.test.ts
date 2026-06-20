@@ -22,6 +22,14 @@ describe('resolveSet', () => {
     const p = [fakeProvider({ kind: 'a', probe: async () => false })]
     await expect(resolveSet(p, ctx, emptyState, 3)).rejects.toMatchObject({ code: Codes.PROBE_EXHAUSTED })
   })
+  it('碰撞跳号时不污染传入的 state（防幻影条目）', async () => {
+    const state: StateFile = { project_name: 'foo', config_fingerprint: '', sets: {} }
+    const probe = vi.fn().mockImplementation(async (n: number) => n !== 1) // n=1 collides, n=2 ok
+    const p = [fakeProvider({ kind: 'a', probe })]
+    const res = await resolveSet(p, ctx, state, 20)
+    expect(res.n).toBe(2)
+    expect(state.sets).toEqual({}) // caller state untouched — no phantom '1' marker
+  })
 })
 
 describe('provisionSet 回滚', () => {
