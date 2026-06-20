@@ -23,9 +23,22 @@ describe('redis provider db_number', () => {
   it('n>15 时 probe 抛 REDIS_DB_EXHAUSTED', async () => {
     await expect(createRedisProvider().probe(16, ctx('db_number'))).rejects.toThrow(/REDIS_DB_EXHAUSTED|0-15/)
   })
+  it('n=15 时 probe 返回 true（边界合法，不抛）', async () => {
+    expect(await createRedisProvider().probe(15, ctx('db_number'))).toBe(true)
+  })
   it('plan 产 redisDb、envVars 含 BK_REDIS_DB', () => {
     const p = createRedisProvider()
     expect(p.plan(3, ctx('db_number')).redisDb).toBe(3)
     expect(p.envVars(3, ctx('db_number')).BK_REDIS_DB).toBe('3')
+  })
+})
+
+describe('redis provider cfg guard', () => {
+  it('infra 无 redis 时 probe 抛 CONFIG_INVALID', async () => {
+    const ctxNoRedis: Ctx = {
+      projectRoot: '/x',
+      config: { project_name: 'foo', services: [], infra: {} },
+    }
+    await expect(createRedisProvider().probe(1, ctxNoRedis)).rejects.toThrow(/CONFIG_INVALID|redis/)
   })
 })
