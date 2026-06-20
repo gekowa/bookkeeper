@@ -11,7 +11,8 @@ export function buildConfigDraft(projectDir: string): string {
   const subdirs = readdirSync(projectDir)
     .filter(d => { try { return statSync(join(projectDir, d)).isDirectory() } catch { return false } })
   const detected: { name: string; type: string | null }[] = []
-  if (detectType(projectDir)) detected.push({ name: basename(projectDir), type: detectType(projectDir) })
+  const rootType = detectType(projectDir)
+  if (rootType) detected.push({ name: basename(projectDir), type: rootType })
   for (const d of subdirs) detected.push({ name: d, type: detectType(join(projectDir, d)) })
   const services = detected.filter(d => d.type)
 
