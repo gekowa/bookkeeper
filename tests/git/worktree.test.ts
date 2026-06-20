@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { execa } from 'execa'
 import { mkdtempSync, rmSync, existsSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, dirname, basename } from 'node:path'
 import { sanitizeBranch, worktreeDirName, addWorktree, removeWorktree } from '../../src/git/worktree.js'
 
 describe('naming', () => {
@@ -22,10 +22,14 @@ describe('add/remove worktree（真 git）', () => {
     await execa('git', ['-C', repo, 'add', '.'])
     await execa('git', ['-C', repo, 'commit', '-m', 'init'])
   })
-  afterEach(() => rmSync(repo, { recursive: true, force: true }))
+  afterEach(() => {
+    rmSync(repo, { recursive: true, force: true })
+    const dir = join(dirname(repo), basename(repo) + '.foo.feature-x')
+    rmSync(dir, { recursive: true, force: true })
+  })
 
   it('创建并删除 worktree', async () => {
-    const dir = join(repo, '..', worktreeDirName('foo', 'feature/x'))
+    const dir = join(dirname(repo), basename(repo) + '.foo.feature-x')
     await addWorktree(repo, 'feature/x', dir)
     expect(existsSync(dir)).toBe(true)
     await removeWorktree(repo, dir)
