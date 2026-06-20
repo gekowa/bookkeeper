@@ -8,4 +8,12 @@ describe('defaultStartCommand', () => {
     .toBe('uv run uvicorn app.main:app --port 10002'))
   it('vite', () => expect(adapterFor('vite').defaultStartCommand({ name: 'f', type: 'vite', port_base: 10100 }, 10102))
     .toBe('npm run dev -- --port 10102'))
+  it('fastapi 缺 app 字段 → 抛 CONFIG_INVALID', () => {
+    expect(() => adapterFor('fastapi').defaultStartCommand({ name: 'b', type: 'fastapi', port_base: 10000 }, 10002))
+      .toThrow(/CONFIG_INVALID|app/)
+  })
+  it('adapterFor 未知 type → 抛错', () => {
+    // @ts-expect-error 故意传入非法 type 验证运行时防御
+    expect(() => adapterFor('nope')).toThrow(/未知|nope/)
+  })
 })
