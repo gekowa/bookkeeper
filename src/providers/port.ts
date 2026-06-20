@@ -7,7 +7,7 @@ function portFree(port: number): Promise<boolean> {
     const srv = createServer()
     srv.once('error', () => resolve(false))
     srv.once('listening', () => srv.close(() => resolve(true)))
-    srv.listen(port)
+    srv.listen(port, '127.0.0.1')
   })
 }
 

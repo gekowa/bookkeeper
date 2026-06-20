@@ -21,7 +21,7 @@ describe('port provider', () => {
     expect(await createPortProvider().probe(2, ctx())).toBe(true)
   })
   it('端口被占 probe 为 false', async () => {
-    const srv = createServer().listen(10002)
+    const srv = createServer().listen(10002, '127.0.0.1')
     await new Promise(r => srv.once('listening', r))
     try { expect(await createPortProvider().probe(2, ctx())).toBe(false) }
     finally { srv.close() }
