@@ -12,7 +12,7 @@ export async function destroySet(
   if (!r) throw new BkError(Codes.CONFIG_INVALID, `编号 ${n} 不存在`)
   if (r.status === 'allocated' && !opts.force)
     throw new BkError(Codes.SET_IN_USE,
-      `SET_IN_USE: 编号 ${n} 正被 ${r.owner?.worktree} 使用`,
+      `编号 ${n} 正被 ${r.owner?.worktree} 使用`,
       { remediation: '先 deallocate / bk worktree delete，或加 --force' })
   for (const p of providers) { try { await p.destroy(n, ctx) } catch { /* 尽力销毁 */ } }
   delete state.sets[key]
