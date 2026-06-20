@@ -1,135 +1,244 @@
 # BookKeeper
 
-Bookkeeper是一个CLI工具，用于管理并行运行多个工作树所需的资源和基础设施。
+BookKeeper（`bk`）是一个 **strongly opinionated** 的 CLI 工具，用于管理在同一台机器上并行运行多个 git worktree 时所需的本地资源与基础设施。
 
-### 心智模型
-回想没有AI的时候。你雇佣了一个新的开发人员，你给他分配了一台电脑，他在电脑上安装了开发环境（即开发工具包、数据库、Redis、MinIO等），这些基础设施在某种程度上变得稳定，只要开发人员仍在这个项目上工作，它们就会被安装并停留一段时间；即使他被分配到另一个项目，只要数据库选型相同，他不必安装新的数据库软件，他只需要设置一个新的数据库并创建数据表即可开始工作。
-### 要解决的问题
-傳統上，開發B/S架構專案（即FastAPI + Vue 3），需要先搭建基础设施（如数据库、Redis等），并啟動至少 2-3 項服務才可以進行手動E2E測試，对于微服务项目可能更多。您需要設定基礎設施，如資料庫、記憶體儲存、塊儲存等。我们之前在本机开发项目时，通常会认为，为了E2E测试所启动的服务都是临时性的，而不受重视，因为只会启动一套且并不会处理资源冲突问题。
-当使用人工智能编程时，事情会变得复杂，因为你总是需要人工智能在同一台计算机上同时处理多个任务。对于代码隔离，我们已经有一个完美的解决方案：git worktree，但对于本地资源和基础设施分配问题，还需要再做更多的努力才能运行。
-### 应对具体问题
-#### 端口
-一个典型的B/S系统至少需要2个端口才能启动，一个用于后端，一个用于前端。BookKeeper可以帮你记住哪个worktree对应的是哪套端口，并无感的正确注入到项目的配置文件中。
-#### 数据库
-数据库用名称前缀+数字或哈希
-（假设有创建数据库的权限，以本地Docker运行的数据库。）
-#### Redis
-方法1：# of DB
-方法2：Key前缀
-#### MinIO
-桶名称
+## 心智模型
 
-### 注入配置
-TBD
+回想没有 AI 的时候：你雇了一个新开发者，给他一台电脑，他装好开发环境（开发工具包、数据库、Redis、MinIO 等）。这些基础设施一旦稳定，就会长期存在——即使他被调到另一个项目，只要数据库选型相同，他不必重装数据库软件，只需**新建一个数据库、建好表**即可开工。
 
+BookKeeper 扮演的正是"记账员"：它不安装、也不照看这些基础设施软件本身，而是帮你**记住并分配**每个 worktree 该用哪套逻辑资源（端口、数据库、桶、key 前缀），并无感地注入到项目配置里。
 
-### 如何使用
-#### 安装
-`$ npm -g install bookkeepper`
+## 要解决的问题
+
+开发 B/S 架构项目（如 FastAPI/Django + Vue 3），手动 E2E 测试前需要先搭好基础设施（数据库、内存存储、块存储）并启动至少 2-3 个服务，微服务项目更多。过去本机开发时，这些为测试而起的服务被当作临时品，只起一套、也不处理资源冲突。
+
+用 AI 编程后情况变复杂了：你总需要 AI 在同一台机器上**同时处理多个任务**。代码隔离已有完美方案——git worktree；但**本地资源与基础设施的分配**，还需要 BookKeeper 来补齐。
+
+## 设计理念
+
+BookKeeper 是**强约定**的工具，命令设计偏好约定与隐喻、刻意砍掉参数：能用一条稳定约定推导出来的东西，就绝不做成 flag 让你去填。
+
+**职责边界（重要）：**
+
+- **bk 管**：逻辑资源的**存在与归属**——创建/分配/回收/销毁数据库、桶、key 前缀、端口，并记录哪个 worktree 占用了哪一套。
+- **bk 不管**：
+  - 基础设施**软件本身**的生命周期（Postgres/Redis/MinIO 进程由你预装、长期稳定运行，bk 只读取它们的连接信息）。
+  - 资源的**内容**——建表、灌种子数据、让库"可用"，全是项目自己的事（项目本来就有 migration 和 seed 脚本）。
+  - 应用**进程的生命周期**——`bk start` 只负责把服务跑起来，不做守护、不做崩溃重启、不做健康检查。
+
+## 核心概念
+
+### 资源集与统一编号 N
+
+一个 worktree 对应一套**资源集**，由单一整数 `N`（从 1 起）统一驱动所有命名，让一切天然对齐、好记好排查：
+
+| 资源 | 命名规则 | 示例（`project_name=foo`, `N=2`） |
+|------|---------|----------------------------------|
+| 后端端口 | `port_base + N` | `10002` |
+| 前端端口 | `port_base + N` | `10102` |
+| PostgreSQL 数据库 | `<project>_<N>` | `foo_2` |
+| Redis key 前缀 | `<project>_<N>_` | `foo_2_` |
+| MinIO bucket | `<project>-<N>` | `foo-2`（下划线在 bucket 名中非法，转连字符） |
+
+### 池子模型（资源是耐久资产）
+
+资源像"新员工电脑里那套装好的数据库"——用完归还、留着复用，不轻易销毁：
+
+- `bk allocate`：当前 worktree 领一套资源。**池中有空闲就给一套**，没有就当场 on-demand 建一套。
+- `bk deallocate`：解绑，资源**退回池子**（数据/表全保留，不删）。
+- `bk destroy <n>`：**真正销毁**第 n 套资源（`DROP DATABASE`、删桶）。
+- bk **绝不自动 destroy**——空闲资源无限期保留等待复用。
+- 销毁后**最小空闲号优先复用**。
+
+### 防撞（尽力代做，非职责保证）
+
+bk 不承诺"绝对无冲突"，但会尽力：`allocate` 落号前对真实世界探活（端口能否 bind、库是否已存在），**撞了就跳号并 warn**。
+
+## 安装
+
+```bash
+npm i -g bookkeeper
+```
 
 ```
 $ bk
-
-Outputs help message
+# 输出帮助信息
 ```
 
-#### 准备与配置
-通过 bk_config.yml  定义项目配置
-```YAML
+## 配置：`bk_config.yml`
+
+放在 main 仓库根、提交进 git。`bk` 在任意子目录/worktree 内向上遍历查找它来定位项目根。
+
+```yaml
 ---
 project_name: foo
-port_allocation_method: inc1  # also support random mode
+
 services:
-  - backend:
-	  type: django # also support fastapi, springboot
-      port_base: 10000
-  - frontend
-      type: Vite
-      port_base: 10100
+  backend:
+    type: django          # django | fastapi
+    port_base: 10000
+    # command:            # 可选，覆盖按 type 推导的默认启动命令
+    # app: app.main:app   # fastapi 专用，喂给默认 uvicorn 模板
+  frontend:
+    type: vite
+    port_base: 10100
+
 infra:
-  - postgres:
-      host:
-      port:
-      username:
-      password:
-
-  - redis:
-      host:
-      port:
-      username:
-      password:
-
-  - minio:
-      host:
-      port:
-      username:
-      password:
-        
-  
+  postgres:
+    host: localhost
+    port: 5432
+    username: postgres    # 本地 superuser，建库与 app 共用
+    password: postgres
+  redis:
+    host: localhost
+    port: 6379
+    isolation: key_prefix # key_prefix | db_number（db_number 因 redis 仅 0-15，并行上限 15 套）
+  minio:
+    endpoint: localhost:9000
+    access_key: minioadmin
+    secret_key: minioadmin
 ```
 
-用`bk init` 可以自动侦测当前项目情况，来自动生成`bk_config.yml`
+> 凭据明文写在提交进 git 的 config 里——仅适用于"本地 Docker、可丢弃的 dev 实例"。切勿将此 config 指向任何非本地基础设施。
 
-#### 使用
-在main分支目录下创建worktree，并为创建完的worktree注入配置（默认worktree会与main分支代码同级目录）
-```
-bk worktree create <worktree_dir> <worktree_branch>
+用 `bk init` 可框架感知地自动侦测当前项目（先认 service 类型，再据类型去翻该框架的惯例配置位如 `settings.py`/`config.py`/`.env` 提取 infra 连接信息；`docker-compose.yml` 作为靠后的补充来源），生成 `bk_config.yml` 草稿，**请审核后再使用**。
+
+### 默认启动命令（按 type 推导，`{port}` 由 bk 填）
+
+| type | 默认命令 |
+|------|---------|
+| `django` | `uv run python manage.py runserver 0.0.0.0:{port}` |
+| `fastapi` | `uv run uvicorn {app} --port {port}` |
+| `vite` | `npm run dev -- --port {port}` |
+
+Python 项目一律用 `uv`。
+
+## 配置注入
+
+`bk allocate` 时（即 `bk worktree create` 一步到位时），bk 在项目 `.env` 里写入一个**标记块**，只动块内、绝不碰你已有的 secrets：
+
+```dotenv
+# >>> bk managed >>>
+BK_DB_HOST=localhost
+BK_DB_PORT=5432
+BK_DB_USER=postgres
+BK_DB_PASSWORD=postgres
+BK_DB_NAME=foo_2
+BK_REDIS_HOST=localhost
+BK_REDIS_PORT=6379
+BK_REDIS_PREFIX=foo_2_
+BK_MINIO_ENDPOINT=localhost:9000
+BK_MINIO_ACCESS_KEY=minioadmin
+BK_MINIO_SECRET_KEY=minioadmin
+BK_MINIO_BUCKET=foo-2
+# <<< bk managed <<<
 ```
 
-用启动项目
-```
-$ bk start
+- 连接信息走这些环境变量；**监听端口走启动命令参数**（Django/FastAPI/Vite 都原生读 `.env`）。
+- `.env` 含本机私有的真实分配值，`bk init` 会把它加进 `.gitignore`。
+- **不写任何额外的 sidecar 或模板文件。**
+
+> 时序保证：`bk worktree create` 返回那一刻，`.env` 已写好且指向正确的库。因此你/AI 任何时候跑 `uv run python manage.py migrate` / seed，都会落进正确的库。**migrate/seed 何时跑由你决定，bk 不代劳。**
+
+## 使用
+
+### 创建 worktree
+
+在 **main 分支目录**下，只给分支名：
+
+```bash
+bk worktree create <branch>
 ```
 
-观测，列出符合当前项目的所有resource和infra，以及已经分配的worktree和未分配的resource
-```
-$ bk list
+约定：worktree 建在当前目录的**父目录**下，目录名为 `<project_name>.<branch>`（分支名里的 `/` 会净化为 `-`，git 分支名本身保持原样）。该命令会 git worktree add → 自动 allocate → 写 `.env`。加 `--no-allocate` 可只建 worktree、暂不占资源。
 
+```
+# 在 foo 的 main 目录下
+$ bk worktree create feature/login
+# → 创建 ../foo.feature-login，并分配资源、写好 .env
+```
+
+### 启动服务
+
+```bash
+bk start [service]
+```
+
+把每个 service 填好端口的启动命令跑起来：自动探测 **tmux → iTerm → 降级打印**，每个 service 一个 pane（`--tmux` / `--iterm` / `--print` 可强制）。**bk 不监管进程**——停止/重启/看输出都交给终端。
+
+### 观测
+
+```bash
+bk list
+```
+
+```
 Project Name: foo
-Worktree: [DIR]
-  - backend 10001
+
+Worktree: ../foo.feature-login  (Set 1)
+  - backend  10001
   - frontend 10101
-  - PostgreSQL database: foo_1
-  - MinIO bucket: foo_1
-  - Redis key prefix: foo_1_
-Worktree: [DIR]
+  - PostgreSQL: foo_1
+  - MinIO bucket: foo-1
+  - Redis prefix: foo_1_
+
+Worktree: ../foo.fix-bar
   No resource allocated.
 
-Unallocated resources:
-Set 3:
-  - backend 10003
+Unallocated (in pool):
+  Set 3
+  - backend  10003
   - frontend 10103
-  - PostgreSQL database: foo_1
-  - MinIO bucket: foo_1
-  - Redis key prefix: foo_1_
+  - PostgreSQL: foo_3
+  - MinIO bucket: foo-3
+  - Redis prefix: foo_3_
+
+Next free number: 4
 ```
 
-为worktree分配基础设施，在worktree目录下执行
-```
-$ bk allocate 2
+### 手动分配 / 回收（边缘场景）
 
-Project Name: foo
-Worktree: ~/Workspace/baz_dir/worktree_bar
-  - backend 10001
-  - frontend 10101
-  - PostgreSQL database: foo_1
-  - MinIO bucket: foo_1
-  - Redis key prefix: foo_1_
+日常用 `worktree create`/`delete` 即可，下面两条用于换资源、迟分配等微调：
+
+```bash
+bk allocate     # 当前 worktree 领一套资源（无参数）
+bk deallocate   # 当前 worktree 解绑，资源退回池子（不销毁）
 ```
 
-```
-$ bk deallocate
+`bk allocate` 半途失败会**尽力回滚**到分配前的干净状态，不留孤儿资源。
+
+### 删除 worktree
+
+```bash
+bk worktree delete [dir]   # 无参 = 删当前 worktree
 ```
 
+会 git worktree remove + **自动 deallocate**（资源退回池子，**不销毁**）。
 
-删除worktree
-```
-$ bk worktree delete
-```
+### 销毁资源
 
-销毁resource
-```
-$ bk destroy 3
+```bash
+bk destroy <n>
 ```
 
+真正 `DROP DATABASE` + 删桶，**不可逆**。护栏：
 
+- 资源正被某 worktree 占用 → 默认拒绝（`--force` 绕过）。
+- 默认交互确认（`--yes` 跳过，供 AI/脚本）。
+- 必须带号，不支持"销毁全部"。
+
+## 状态存储
+
+中心状态文件（机器级、项目维度一份）：
+
+```
+~/.bookkeeper/<project_name>/state.json
+```
+
+记录每套资源的归属，原子写 + 文件锁防止并发 worktree 抢同一套资源。它是分配关系的唯一真相源——按 `project_name` 维度，与代码仓库解耦（资源分配是本机事实，不进 git）。
+
+## 实现
+
+Node/TS 实现，`npm i -g bookkeeper`。Node 是前后端项目的最大公约数（未来支持 Java 项目时，本机不一定有 Python，但一定有 Node）。
+
+首批支持：**Django、FastAPI、Vite**；Java、其他 Node 框架后续再说。
