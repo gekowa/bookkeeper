@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { resolveSet, provisionSet } from '../../src/core/allocator.js'
+import { Codes } from '../../src/core/errors.js'
 import { fakeProvider } from '../helpers/fakeProvider.js'
 import type { Ctx } from '../../src/core/types.js'
 import type { StateFile } from '../../src/state/schema.js'
@@ -19,7 +20,7 @@ describe('resolveSet', () => {
   })
   it('连撞超过上限 → PROBE_EXHAUSTED', async () => {
     const p = [fakeProvider({ kind: 'a', probe: async () => false })]
-    await expect(resolveSet(p, ctx, emptyState, 3)).rejects.toThrow(/PROBE_EXHAUSTED/)
+    await expect(resolveSet(p, ctx, emptyState, 3)).rejects.toMatchObject({ code: Codes.PROBE_EXHAUSTED })
   })
 })
 

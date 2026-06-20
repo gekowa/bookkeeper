@@ -19,7 +19,7 @@ export async function resolveSet(
     n = pickNumber(state).n
   }
   throw new BkError(Codes.PROBE_EXHAUSTED,
-    `PROBE_EXHAUSTED: 连试 ${maxAttempts} 个编号都被占用，放弃。`,
+    `连试 ${maxAttempts} 个编号都被占用，放弃。`,
     { remediation: '清理占用端口/库的野进程，或提高 allocation.max_probe_attempts' })
 }
 
