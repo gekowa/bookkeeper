@@ -1,4 +1,3 @@
-import { execa } from 'execa'
 import type { Ctx, SetRecord } from '../core/types.js'
 import { adapterFor } from '../frameworks/registry.js'
 import { renderPrint } from './print.js'

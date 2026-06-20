@@ -1,9 +1,10 @@
 // tests/cli/allocate.flow.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'; import { join } from 'node:path'
 import { doAllocate } from '../../src/cli/commands/allocate.js'
 import { readState } from '../../src/state/store.js'
+import { fakeProvider } from '../helpers/fakeProvider.js'
 import type { Ctx } from '../../src/core/types.js'
 
 let home: string, wt: string
@@ -29,5 +30,15 @@ describe('doAllocate', () => {
     expect(s.sets['1'].status).toBe('allocated')
     expect(s.sets['1'].owner?.worktree).toBe(wt)
     expect((s.sets['1'].resources['backend'] as any).port).toBe(10001)
+  })
+
+  it('provision 后写 .env 失败 → 回滚已建资源、不持久化 state', async () => {
+    const destroy = vi.fn(async () => {})
+    const fake = fakeProvider({ kind: 'fake', provision: async () => {}, destroy, plan: () => ({ database: 'x' }) })
+    const badDir = join(wt, 'does-not-exist-subdir', 'nested')  // parent missing → writeEnvBlock throws ENOENT
+    await expect(doAllocate(ctx(), badDir, 'feature/x', [fake])).rejects.toThrow()
+    expect(destroy).toHaveBeenCalledWith(1, expect.anything())
+    const s = await readState('foo')
+    expect(s.sets['1']).toBeUndefined()  // nothing persisted
   })
 })
