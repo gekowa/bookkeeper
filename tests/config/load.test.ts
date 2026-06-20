@@ -35,4 +35,22 @@ infra:
     write(`services: {}\n`)
     expect(() => loadConfig(root)).toThrow(/project_name/)
   })
+  it('service 缺 type 抛 CONFIG_INVALID', () => {
+    write(`project_name: foo
+services:
+  backend:
+    port_base: 10000
+infra: {}
+`)
+    expect(() => loadConfig(root)).toThrow(/type/)
+  })
+  it('service 缺 port_base 抛 CONFIG_INVALID', () => {
+    write(`project_name: foo
+services:
+  backend:
+    type: django
+infra: {}
+`)
+    expect(() => loadConfig(root)).toThrow(/port_base/)
+  })
 })
