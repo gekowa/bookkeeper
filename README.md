@@ -84,6 +84,8 @@ services:
     type: vite
     port_base: 10100
     dir: frontend
+    envs:                                   # 前端要写进 .env 的变量（值支持占位符）
+      VITE_API_BASE: http://localhost:{backend.port}
   worker:                 # arq/celery worker：无端口，不写 port_base
     type: arq             # arq → uv run arq {app}.WorkerSettings
     dir: backend          # 通常与后端同目录，复用后端代码与 .env
@@ -128,9 +130,11 @@ Python 项目一律用 `uv`。
 
 ## 配置注入
 
-`bk allocate` 时（即 `bk worktree create` 一步到位时），bk 往**每个 service 目录**（`dir`，缺省为 worktree 根）的 `.env` 里写入一个**标记块**，只动块内、绝不碰你已有的 secrets：
+`bk allocate` 时（即 `bk worktree create` 一步到位时），bk 往**每个 service 目录**（`dir`，缺省为 worktree 根）的 `.env` 写入一个**标记块**，只动块内、绝不碰你已有的 secrets。**写什么按 service 量身定制**：
 
-```dotenv
+后端（django/fastapi，及同目录的 arq/celery worker）目录里：
+
+```
 # >>> bk managed >>>
 BK_DB_NAME=foo_2
 BK_REDIS_DB=2
@@ -138,12 +142,21 @@ BK_MINIO_BUCKET=foo-2
 # <<< bk managed <<<
 ```
 
-- **只写每套 worktree 动态分配的隔离标识**——数据库名、Redis db 号、MinIO 桶名。主机/端口/账号密码/endpoint 这些**共享的静态连接信息**不归 bk 管，留在你自己 `.env` 里的 secrets（块外，bk 绝不触碰）。
-- Redis 默认 `isolation: db_number`，这里写的是 `BK_REDIS_DB=2`；只有显式改用 `isolation: key_prefix` 时才改写成前缀 `BK_REDIS_PREFIX=foo_2_`。
-- **监听端口走启动命令参数**（Django/FastAPI/Vite/arq/celery 都原生读各自目录下的 `.env`）。
-- **写在每个 service 的目录里**：因为服务在自己的 `dir` 下启动，标记块就写进该目录的 `.env`（同目录的多个 service——如后端 + worker——共用一份）。这样 pydantic-settings、Vite 等"按 cwd 找 `.env`"的加载器都能直接读到。
-- `.env` 含本机私有的真实分配值，`bk init` 会把它加进 `.gitignore`（根 `.gitignore` 的 `.env` 规则递归覆盖子目录）。
-- **不写任何额外的 sidecar 或模板文件。**
+前端（vite）目录里只写你在 `envs` 里声明的变量（占位符已插值）：
+
+```
+# >>> bk managed >>>
+VITE_API_BASE=http://localhost:10001
+# <<< bk managed <<<
+```
+
+- **后端只写动态隔离标识**——数据库名、Redis db 号、MinIO 桶名。主机/端口/账号密码这些共享静态连接信息不归 bk 管，留在你自己 `.env` 的 secrets 里（块外，bk 绝不触碰）。
+- **前端写 `envs`**：在 vite service 上声明 `envs` 映射，值里可用占位符 `{<服务名>.port}` 引用某 service 的已分配端口（如 `{backend.port}`）。bk 在 allocate 时插值后写入。**vite 不写任何 `BK_` 变量**；**没写 `envs` 就什么都不写**。
+- **占位符**：首批支持 `{<服务名>.port}`；引用了不存在或无 `port_base` 的服务名会报 `CONFIG_INVALID`。
+- **`bk init` 会探测前端**：扫前端目录的 `.env`/`.env.example`/`.env.local`/`.env.development`，命中 `VITE_*=http://...localhost...` 就把变量名与格式搬进 `envs`（端口替换成 `{backend.port}`）；探不到则留一段注释掉的 `envs` stub 供你启用。
+- **监听端口仍走启动命令参数**（各框架原生读各自目录下的 `.env`）。
+- **写在每个 service 的目录里**：同目录多个 service（如后端 + worker）共用一份，env 需求合并。
+- `.env` 含本机私有分配值，`bk init` 会把它加进 `.gitignore`。
 
 > 时序保证：`bk worktree create` 返回那一刻，`.env` 已写好且指向正确的库。因此你/AI 任何时候跑 `uv run python manage.py migrate` / seed，都会落进正确的库。**migrate/seed 何时跑由你决定，bk 不代劳。**
 
