@@ -44,4 +44,13 @@ describe('buildLaunchSpecs', () => {
       resources: {}, created_at: 'x' }
     expect(() => buildLaunchSpecs(ctxBad, setBad, '/wt')).toThrow(/CONFIG_INVALID|port/)
   })
+  it('无端口 worker + 自定义 command（不含 {port}）→ 命令原样保留', () => {
+    const ctxC: Ctx = { projectRoot: '/x', config: { project_name: 'foo', infra: {},
+      services: [{ name: 'worker', type: 'arq', command: 'uv run arq app.worker.WorkerSettings', dir: 'backend' }] } }
+    const setC: SetRecord = { status: 'allocated', owner: { worktree: '/wt', branch: 'x' },
+      resources: {}, created_at: 'x' }
+    const spec = buildLaunchSpecs(ctxC, setC, '/wt')[0]
+    expect(spec.command).toBe('uv run arq app.worker.WorkerSettings')
+    expect(spec.cwd).toBe('/wt/backend')
+  })
 })

@@ -20,7 +20,9 @@ export function buildLaunchSpecs(ctx: Ctx, set: SetRecord, worktreeDir: string, 
           throw new BkError(Codes.CONFIG_INVALID,
             `service ${s.name} 无端口但 command 引用了 {port}`,
             { remediation: '移除 {port} 或为该 service 设置 port_base' })
-        command = s.command.replace(/\{port\}/g, String(port))
+        command = port !== undefined
+          ? s.command.replace(/\{port\}/g, String(port))
+          : s.command
       } else {
         command = adapterFor(s.type).defaultStartCommand(s, port)
       }
