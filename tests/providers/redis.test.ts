@@ -33,6 +33,23 @@ describe('redis provider db_number', () => {
   })
 })
 
+describe('redis provider isolation 缺省', () => {
+  const ctxNoIso: Ctx = {
+    projectRoot: '/x',
+    config: { project_name: 'foo', services: [],
+      infra: { redis: { host: 'localhost', port: 6379 } } },
+  }
+  it('未配置 isolation 时默认 db_number：plan 产 redisDb、envVars 含 BK_REDIS_DB', () => {
+    const p = createRedisProvider()
+    expect(p.plan(3, ctxNoIso).redisDb).toBe(3)
+    expect(p.plan(3, ctxNoIso).redisPrefix).toBeUndefined()
+    expect(p.envVars(3, ctxNoIso).BK_REDIS_DB).toBe('3')
+  })
+  it('缺省下 n>15 仍抛 REDIS_DB_EXHAUSTED', async () => {
+    await expect(createRedisProvider().probe(16, ctxNoIso)).rejects.toThrow(/REDIS_DB_EXHAUSTED|0-15/)
+  })
+})
+
 describe('redis provider cfg guard', () => {
   it('infra 无 redis 时 probe 抛 CONFIG_INVALID', async () => {
     const ctxNoRedis: Ctx = {

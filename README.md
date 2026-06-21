@@ -98,7 +98,7 @@ infra:
   redis:
     host: localhost
     port: 6379
-    isolation: key_prefix # key_prefix | db_number（db_number 因 redis 仅 0-15，并行上限 15 套）
+    isolation: db_number  # 默认 db_number（redis 仅 0-15，并行上限 16 套）；要突破上限再显式改 key_prefix
   minio:
     endpoint: localhost:9000
     access_key: minioadmin
@@ -133,13 +133,13 @@ Python 项目一律用 `uv`。
 ```dotenv
 # >>> bk managed >>>
 BK_DB_NAME=foo_2
-BK_REDIS_PREFIX=foo_2_
+BK_REDIS_DB=2
 BK_MINIO_BUCKET=foo-2
 # <<< bk managed <<<
 ```
 
-- **只写每套 worktree 动态分配的隔离标识**——数据库名、Redis 前缀、MinIO 桶名。主机/端口/账号密码/endpoint 这些**共享的静态连接信息**不归 bk 管，留在你自己 `.env` 里的 secrets（块外，bk 绝不触碰）。
-- Redis 若用 `isolation: db_number`，这里写的是 `BK_REDIS_DB=2` 而非前缀。
+- **只写每套 worktree 动态分配的隔离标识**——数据库名、Redis db 号、MinIO 桶名。主机/端口/账号密码/endpoint 这些**共享的静态连接信息**不归 bk 管，留在你自己 `.env` 里的 secrets（块外，bk 绝不触碰）。
+- Redis 默认 `isolation: db_number`，这里写的是 `BK_REDIS_DB=2`；只有显式改用 `isolation: key_prefix` 时才改写成前缀 `BK_REDIS_PREFIX=foo_2_`。
 - **监听端口走启动命令参数**（Django/FastAPI/Vite/arq/celery 都原生读各自目录下的 `.env`）。
 - **写在每个 service 的目录里**：因为服务在自己的 `dir` 下启动，标记块就写进该目录的 `.env`（同目录的多个 service——如后端 + worker——共用一份）。这样 pydantic-settings、Vite 等"按 cwd 找 `.env`"的加载器都能直接读到。
 - `.env` 含本机私有的真实分配值，`bk init` 会把它加进 `.gitignore`（根 `.gitignore` 的 `.env` 规则递归覆盖子目录）。

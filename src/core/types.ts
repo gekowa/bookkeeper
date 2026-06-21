@@ -11,7 +11,7 @@ export interface ServiceConfig {
 }
 export interface InfraConfig {
   postgres?: { host: string; port: number; username: string; password: string }
-  redis?: { host: string; port: number; isolation: RedisIsolation }
+  redis?: { host: string; port: number; isolation?: RedisIsolation }
   minio?: { endpoint: string; access_key: string; secret_key: string }
 }
 export interface ProjectConfig {

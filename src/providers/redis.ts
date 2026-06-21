@@ -5,7 +5,8 @@ import { BkError, Codes } from '../core/errors.js'
 function cfg(ctx: Ctx) {
   const r = ctx.config.infra.redis
   if (!r) throw new BkError(Codes.CONFIG_INVALID, 'infra.redis 未配置')
-  return r
+  // isolation 缺省按 db_number；key_prefix 需显式启用（突破 0-15 的 16 套上限时）
+  return { ...r, isolation: r.isolation ?? 'db_number' as const }
 }
 function prefix(n: number, ctx: Ctx) { return `${ctx.config.project_name}_${n}_` }
 
