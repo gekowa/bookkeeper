@@ -26,7 +26,7 @@ function detectViteApiEnvs(dir: string): { name: string; url: string }[] {
     if (!existsSync(p)) continue
     for (const line of readFileSync(p, 'utf8').split('\n')) {
       const m = line.match(
-        /^\s*(VITE_[A-Z0-9_]+)\s*=\s*["']?(https?:\/\/[^\s"']*(?:localhost|127\.0\.0\.1)[^\s"']*)["']?\s*$/)
+        /^\s*(VITE_[A-Z0-9_]+)\s*=\s*["']?(https?:\/\/(?:localhost|127\.0\.0\.1):\d+[^\s"']*)["']?\s*$/)
       if (m && !seen.has(m[1])) { seen.add(m[1]); out.push({ name: m[1], url: m[2] }) }
     }
   }
@@ -48,6 +48,7 @@ export function buildConfigDraft(projectDir: string): string {
     lines.push(`  ${s.name}:`, `    type: ${s.type}`, `    port_base: ${base}`, `    dir: ${s.dir}`)
     if (s.type === 'fastapi') lines.push(`    # app: app.main:app   # TODO fastapi 入口`)
     if (s.type === 'vite') {
+      // 单后端假设：取第一个非 vite 服务作为占位符目标；多后端消歧属非目标
       const target = services.find(x => x.type !== 'vite')?.name ?? 'backend'
       const apiEnvs = detectViteApiEnvs(join(projectDir, s.dir))
       if (apiEnvs.length) {

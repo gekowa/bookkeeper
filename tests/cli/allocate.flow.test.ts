@@ -67,6 +67,8 @@ describe('doAllocate', () => {
     expect(serviceEnvDirs(c)).toEqual(['backend'])
     await doAllocate(c, wt, 'feature/x', provs())
     expect(existsSync(join(wt, 'backend', '.env'))).toBe(true)
+    const merged = readFileSync(join(wt, 'backend', '.env'), 'utf8')
+    expect(merged.match(/# >>> bk managed >>>/g)?.length).toBe(1)
   })
 })
 

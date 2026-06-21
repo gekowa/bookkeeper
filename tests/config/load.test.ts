@@ -91,4 +91,15 @@ infra: {}
 `)
     expect(loadConfig(root).services[0].envs).toEqual({ VITE_API_BASE: 'http://localhost:{backend.port}' })
   })
+  it('envs 非映射（字符串/列表）→ 抛 CONFIG_INVALID', () => {
+    write(`project_name: foo
+services:
+  frontend:
+    type: vite
+    port_base: 10100
+    envs: oops
+infra: {}
+`)
+    expect(() => loadConfig(root)).toThrow(/CONFIG_INVALID|envs/)
+  })
 })

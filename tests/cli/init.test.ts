@@ -73,4 +73,11 @@ describe('buildConfigDraft', () => {
     expect(yml).toContain('    # envs:')
     expect(yml).toContain('    #   VITE_API_BASE: http://localhost:{backend.port}')
   })
+
+  it('vite dir 的 VITE_* URL 无端口 → 不写 envs，落到注释 stub', () => {
+    writeFileSync(join(dir, 'frontend', '.env.example'), 'VITE_API_BASE=http://localhost/api\n')
+    const yml = buildConfigDraft(dir)
+    expect(yml).toContain('    # envs:')
+    expect(yml).not.toContain('      VITE_API_BASE:')
+  })
 })
