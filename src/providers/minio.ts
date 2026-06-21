@@ -41,10 +41,6 @@ export function createMinioProvider(): ResourceProvider {
         await c.removeBucket(b)
       } catch (e) { wrap(ctx, e) }
     },
-    envVars: (n, ctx) => {
-      const m = ctx.config.infra.minio!
-      return { BK_MINIO_ENDPOINT: m.endpoint, BK_MINIO_ACCESS_KEY: m.access_key,
-        BK_MINIO_SECRET_KEY: m.secret_key, BK_MINIO_BUCKET: bucket(n, ctx) }
-    },
+    envVars: (n, ctx) => ({ BK_MINIO_BUCKET: bucket(n, ctx) }),
   }
 }

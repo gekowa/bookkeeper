@@ -23,12 +23,8 @@ export function createRedisProvider(): ResourceProvider {
     },
     provision: async () => {},
     destroy: async () => {},   // key_prefix 可选 SCAN+DEL，首批不做
-    envVars: (n, ctx) => {
-      const r = cfg(ctx)
-      const base = { BK_REDIS_HOST: r.host, BK_REDIS_PORT: String(r.port) }
-      return r.isolation === 'db_number'
-        ? { ...base, BK_REDIS_DB: String(n) }
-        : { ...base, BK_REDIS_PREFIX: prefix(n, ctx) }
-    },
+    envVars: (n, ctx): Record<string, string> => cfg(ctx).isolation === 'db_number'
+      ? { BK_REDIS_DB: String(n) }
+      : { BK_REDIS_PREFIX: prefix(n, ctx) },
   }
 }

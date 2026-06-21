@@ -132,22 +132,15 @@ Python 项目一律用 `uv`。
 
 ```dotenv
 # >>> bk managed >>>
-BK_DB_HOST=localhost
-BK_DB_PORT=5432
-BK_DB_USER=postgres
-BK_DB_PASSWORD=postgres
 BK_DB_NAME=foo_2
-BK_REDIS_HOST=localhost
-BK_REDIS_PORT=6379
 BK_REDIS_PREFIX=foo_2_
-BK_MINIO_ENDPOINT=localhost:9000
-BK_MINIO_ACCESS_KEY=minioadmin
-BK_MINIO_SECRET_KEY=minioadmin
 BK_MINIO_BUCKET=foo-2
 # <<< bk managed <<<
 ```
 
-- 连接信息走这些环境变量；**监听端口走启动命令参数**（Django/FastAPI/Vite/arq/celery 都原生读各自目录下的 `.env`）。
+- **只写每套 worktree 动态分配的隔离标识**——数据库名、Redis 前缀、MinIO 桶名。主机/端口/账号密码/endpoint 这些**共享的静态连接信息**不归 bk 管，留在你自己 `.env` 里的 secrets（块外，bk 绝不触碰）。
+- Redis 若用 `isolation: db_number`，这里写的是 `BK_REDIS_DB=2` 而非前缀。
+- **监听端口走启动命令参数**（Django/FastAPI/Vite/arq/celery 都原生读各自目录下的 `.env`）。
 - **写在每个 service 的目录里**：因为服务在自己的 `dir` 下启动，标记块就写进该目录的 `.env`（同目录的多个 service——如后端 + worker——共用一份）。这样 pydantic-settings、Vite 等"按 cwd 找 `.env`"的加载器都能直接读到。
 - `.env` 含本机私有的真实分配值，`bk init` 会把它加进 `.gitignore`（根 `.gitignore` 的 `.env` 规则递归覆盖子目录）。
 - **不写任何额外的 sidecar 或模板文件。**
