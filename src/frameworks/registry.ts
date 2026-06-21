@@ -4,8 +4,10 @@ import { BkError, Codes } from '../core/errors.js'
 import { django } from './django.js'
 import { fastapi } from './fastapi.js'
 import { vite } from './vite.js'
+import { arq } from './arq.js'
+import { celery } from './celery.js'
 
-const ALL: FrameworkAdapter[] = [django, fastapi, vite]
+const ALL: FrameworkAdapter[] = [django, fastapi, vite, arq, celery]
 
 export function adapterFor(type: ServiceType): FrameworkAdapter {
   const a = ALL.find(x => x.type === type)

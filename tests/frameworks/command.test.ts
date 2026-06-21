@@ -24,4 +24,14 @@ describe('defaultStartCommand', () => {
     // @ts-expect-error 故意传入非法 type 验证运行时防御
     expect(() => adapterFor('nope')).toThrow(/未知|nope/)
   })
+  it('arq 用 app 字段', () => expect(adapterFor('arq').defaultStartCommand({ name: 'w', type: 'arq', app: 'app.worker' }))
+    .toBe('uv run arq app.worker.WorkerSettings'))
+  it('celery 用 app 字段', () => expect(adapterFor('celery').defaultStartCommand({ name: 'w', type: 'celery', app: 'app.celery' }))
+    .toBe('uv run celery -A app.celery worker'))
+  it('arq 缺 app → 抛 CONFIG_INVALID', () => {
+    expect(() => adapterFor('arq').defaultStartCommand({ name: 'w', type: 'arq' })).toThrow(/CONFIG_INVALID|app/)
+  })
+  it('celery 缺 app → 抛 CONFIG_INVALID', () => {
+    expect(() => adapterFor('celery').defaultStartCommand({ name: 'w', type: 'celery' })).toThrow(/CONFIG_INVALID|app/)
+  })
 })

@@ -9,4 +9,10 @@ describe('detectType', () => {
   it('pyproject 含 fastapi → fastapi', () => expect(detectType(fx('fastapi-proj'))).toBe('fastapi'))
   it('vite.config → vite', () => expect(detectType(fx('vite-proj'))).toBe('vite'))
   it('无特征 → null', () => expect(detectType(fx('.'))).toBe(null))
+  it('arq/celery adapter detect 恒为 false（不污染目录侦测）', async () => {
+    const { arq } = await import('../../src/frameworks/arq.js')
+    const { celery } = await import('../../src/frameworks/celery.js')
+    expect(arq.detect(fx('fastapi-proj'))).toBe(false)
+    expect(celery.detect(fx('fastapi-proj'))).toBe(false)
+  })
 })
