@@ -1,4 +1,6 @@
 // src/cli/index.ts
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { Command } from 'commander'
 import { registerInit } from './commands/init.js'
 import { registerAllocate } from './commands/allocate.js'
@@ -7,8 +9,12 @@ import { registerList } from './commands/list.js'
 import { registerStart } from './commands/start.js'
 import { registerDestroy } from './commands/destroy.js'
 
+const pkg = JSON.parse(
+  readFileSync(fileURLToPath(new URL('../../package.json', import.meta.url)), 'utf8'),
+) as { version: string }
+
 const program = new Command()
-program.name('bk').description('BookKeeper — 并行 worktree 的本地资源记账员').version('0.0.1')
+program.name('bk').description('BookKeeper — 并行 worktree 的本地资源记账员').version(pkg.version)
 registerInit(program)
 registerAllocate(program)
 registerWorktree(program)
