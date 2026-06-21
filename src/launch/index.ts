@@ -1,5 +1,7 @@
+import { join } from 'node:path'
 import type { Ctx, SetRecord } from '../core/types.js'
 import { adapterFor } from '../frameworks/registry.js'
+import { BkError, Codes } from '../core/errors.js'
 import { renderPrint } from './print.js'
 import { runTmux } from './tmux.js'
 import { runIterm } from './iterm.js'
@@ -11,11 +13,18 @@ export function buildLaunchSpecs(ctx: Ctx, set: SetRecord, worktreeDir: string, 
   return ctx.config.services
     .filter(s => !only || s.name === only)
     .map(s => {
-      const port = (set.resources[s.name] as { port: number }).port
-      const command = s.command
-        ? s.command.replace(/\{port\}/g, String(port))
-        : adapterFor(s.type).defaultStartCommand(s, port)
-      return { name: s.name, command, cwd: worktreeDir }
+      const port = (set.resources[s.name] as { port: number } | undefined)?.port
+      let command: string
+      if (s.command) {
+        if (s.command.includes('{port}') && port === undefined)
+          throw new BkError(Codes.CONFIG_INVALID,
+            `service ${s.name} 无端口但 command 引用了 {port}`,
+            { remediation: '移除 {port} 或为该 service 设置 port_base' })
+        command = s.command.replace(/\{port\}/g, String(port))
+      } else {
+        command = adapterFor(s.type).defaultStartCommand(s, port)
+      }
+      return { name: s.name, command, cwd: join(worktreeDir, s.dir ?? '.') }
     })
 }
 

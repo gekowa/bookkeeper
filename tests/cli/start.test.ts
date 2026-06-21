@@ -21,4 +21,27 @@ describe('buildLaunchSpecs', () => {
   it('only 过滤单个 service', () => {
     expect(buildLaunchSpecs(ctx, set, '/wt', 'frontend')).toHaveLength(1)
   })
+  it('用 dir 解析 cwd', () => {
+    const ctxDir: Ctx = { projectRoot: '/x', config: { project_name: 'foo', infra: {},
+      services: [{ name: 'backend', type: 'django', port_base: 10000, dir: 'backend' }] } }
+    const setDir: SetRecord = { status: 'allocated', owner: { worktree: '/wt', branch: 'x' },
+      resources: { backend: { port: 10002 } }, created_at: 'x' }
+    expect(buildLaunchSpecs(ctxDir, setDir, '/wt')[0].cwd).toBe('/wt/backend')
+  })
+  it('无端口 worker：用 adapter 默认命令、cwd 取 dir', () => {
+    const ctxW: Ctx = { projectRoot: '/x', config: { project_name: 'foo', infra: {},
+      services: [{ name: 'worker', type: 'arq', app: 'app.worker', dir: 'backend' }] } }
+    const setW: SetRecord = { status: 'allocated', owner: { worktree: '/wt', branch: 'x' },
+      resources: {}, created_at: 'x' }
+    const spec = buildLaunchSpecs(ctxW, setW, '/wt')[0]
+    expect(spec.command).toBe('uv run arq app.worker.WorkerSettings')
+    expect(spec.cwd).toBe('/wt/backend')
+  })
+  it('command 含 {port} 但无端口 → 抛 CONFIG_INVALID', () => {
+    const ctxBad: Ctx = { projectRoot: '/x', config: { project_name: 'foo', infra: {},
+      services: [{ name: 'worker', type: 'arq', command: 'run --port {port}', dir: 'backend' }] } }
+    const setBad: SetRecord = { status: 'allocated', owner: { worktree: '/wt', branch: 'x' },
+      resources: {}, created_at: 'x' }
+    expect(() => buildLaunchSpecs(ctxBad, setBad, '/wt')).toThrow(/CONFIG_INVALID|port/)
+  })
 })
