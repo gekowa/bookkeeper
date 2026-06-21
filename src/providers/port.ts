@@ -13,7 +13,10 @@ function portFree(port: number): Promise<boolean> {
 
 export function createPortProvider(): ResourceProvider {
   const ports = (n: number, ctx: Ctx) =>
-    Object.fromEntries(ctx.config.services.map(s => [s.name, s.port_base + n]))
+    Object.fromEntries(
+      ctx.config.services
+        .filter(s => s.port_base !== undefined)
+        .map(s => [s.name, (s.port_base as number) + n]))
   return {
     kind: 'port',
     plan: (n, ctx) => ({ ports: ports(n, ctx) }),

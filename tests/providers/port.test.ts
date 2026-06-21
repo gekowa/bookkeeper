@@ -26,4 +26,12 @@ describe('port provider', () => {
     try { expect(await createPortProvider().probe(2, ctx())).toBe(false) }
     finally { srv.close() }
   })
+  it('plan 跳过无 port_base 的 worker', () => {
+    const c: Ctx = { projectRoot: '/x', config: { project_name: 'foo', infra: {},
+      services: [
+        { name: 'backend', type: 'django', port_base: 10000 },
+        { name: 'worker', type: 'arq', app: 'app.worker' },
+      ] } }
+    expect(createPortProvider().plan(2, c).ports).toEqual({ backend: 10002 })
+  })
 })
