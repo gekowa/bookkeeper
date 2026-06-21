@@ -26,7 +26,7 @@ export function buildConfigDraft(projectDir: string): string {
   for (const d of subdirs) detected.push({ name: d, type: detectType(join(projectDir, d)), dir: d })
   const services = detected.filter(d => d.type)
 
-  const lines = ['---', `project_name: ${basename(projectDir)}`, '', 'services:']
+  const lines = [`project_name: ${basename(projectDir)}`, '', 'services:']
   let base = 10000
   for (const s of services) {
     lines.push(`  ${s.name}:`, `    type: ${s.type}`, `    port_base: ${base}`, `    dir: ${s.dir}`)
