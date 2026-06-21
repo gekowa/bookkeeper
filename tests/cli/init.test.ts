@@ -19,6 +19,8 @@ describe('buildConfigDraft', () => {
     expect(yml).toMatch(/backend:[\s\S]*type: django/)
     expect(yml).toMatch(/frontend:[\s\S]*type: vite/)
     expect(yml).toContain('port_base: 10000')
+    expect(yml).toMatch(/backend:[\s\S]*dir: backend/)
+    expect(yml).toMatch(/frontend:[\s\S]*dir: frontend/)
   })
 
   it('fastapi service 发出 # app: TODO 注释', () => {
@@ -41,6 +43,21 @@ describe('buildConfigDraft', () => {
       expect(yml).toContain('# TODO 未侦测到 service，请手动填写')
     } finally {
       rmSync(emptyDir, { recursive: true, force: true })
+    }
+  })
+
+  it('pyproject 含 arq 依赖 → 输出注释 worker stub', () => {
+    const wdir = mkdtempSync(join(tmpdir(), 'proj-'))
+    try {
+      mkdirSync(join(wdir, 'backend'))
+      writeFileSync(join(wdir, 'backend', 'pyproject.toml'),
+        '[project]\ndependencies = ["fastapi>=0.100", "arq>=0.25"]\n')
+      const yml = buildConfigDraft(wdir)
+      expect(yml).toMatch(/backend:[\s\S]*type: fastapi/)
+      expect(yml).toContain('#   type: arq')
+      expect(yml).toContain('#   dir: backend')
+    } finally {
+      rmSync(wdir, { recursive: true, force: true })
     }
   })
 })
