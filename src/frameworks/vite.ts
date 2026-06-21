@@ -10,4 +10,5 @@ export const vite: FrameworkAdapter = {
     if (port === undefined) throw new BkError(Codes.CONFIG_INVALID, 'vite service 需要端口（设置 port_base）')
     return `npm run dev -- --port ${port}`
   },
+  envVars: () => ({}),
 }

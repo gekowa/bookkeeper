@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { FrameworkAdapter } from './types.js'
 import { BkError, Codes } from '../core/errors.js'
+import { backendEnvVars } from './backendEnv.js'
 
 export const fastapi: FrameworkAdapter = {
   type: 'fastapi',
@@ -16,4 +17,5 @@ export const fastapi: FrameworkAdapter = {
       `fastapi service ${svc.name} 需要端口（设置 port_base）`)
     return `uv run uvicorn ${svc.app} --port ${port}`
   },
+  envVars: backendEnvVars,
 }
