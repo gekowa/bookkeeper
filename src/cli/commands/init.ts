@@ -49,10 +49,10 @@ export function buildConfigDraft(projectDir: string): string {
     if (s.type === 'fastapi') lines.push(`    # app: app.main:app   # TODO fastapi 入口`)
     if (s.type === 'vite') {
       const target = services.find(x => x.type !== 'vite')?.name ?? 'backend'
-      const detected = detectViteApiEnvs(join(projectDir, s.dir))
-      if (detected.length) {
+      const apiEnvs = detectViteApiEnvs(join(projectDir, s.dir))
+      if (apiEnvs.length) {
         lines.push('    envs:')
-        for (const e of detected)
+        for (const e of apiEnvs)
           lines.push(`      ${e.name}: ${e.url.replace(/:(\d+)/, `:{${target}.port}`)}`)
       } else {
         lines.push(
