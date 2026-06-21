@@ -1,12 +1,14 @@
 // src/cli/commands/allocate.ts
 import type { Command } from 'commander'
 import { join } from 'node:path'
-import type { Ctx } from '../../core/types.js'
+import type { Ctx, ResourceNames } from '../../core/types.js'
 import type { ResourceProvider } from '../../providers/types.js'
 import { withState } from '../../state/store.js'
 import { activeProviders } from '../../providers/registry.js'
-import { resolveSet, provisionSet, buildSetRecord, collectEnv } from '../../core/allocator.js'
+import { resolveSet, provisionSet, buildSetRecord, planNames } from '../../core/allocator.js'
 import { writeEnvBlock, removeEnvBlock } from '../../inject/env.js'
+import { interpolateEnvs } from '../../inject/interpolate.js'
+import { adapterFor } from '../../frameworks/registry.js'
 import { ensureGitignore } from '../../inject/gitignore.js'
 import { findSetByWorktree, deallocateInState } from '../../core/deallocator.js'
 import { loadCtx, maxAttempts, runCommand } from '../context.js'
@@ -17,8 +19,23 @@ export function serviceEnvDirs(ctx: Ctx): string[] {
   return [...new Set(ctx.config.services.map(s => s.dir ?? '.'))]
 }
 
-export function writeServiceEnvs(ctx: Ctx, worktreeDir: string, vars: Record<string, string>): void {
-  for (const d of serviceEnvDirs(ctx)) writeEnvBlock(join(worktreeDir, d, '.env'), vars)
+export function buildDirEnvs(ctx: Ctx, names: ResourceNames): Map<string, Record<string, string>> {
+  const byDir = new Map<string, Record<string, string>>()
+  for (const svc of ctx.config.services) {
+    const vars = {
+      ...adapterFor(svc.type).envVars(names),
+      ...interpolateEnvs(svc.envs ?? {}, names, svc.name),
+    }
+    if (Object.keys(vars).length === 0) continue
+    const dir = svc.dir ?? '.'
+    byDir.set(dir, { ...(byDir.get(dir) ?? {}), ...vars })
+  }
+  return byDir
+}
+
+export function writeServiceEnvs(ctx: Ctx, worktreeDir: string, names: ResourceNames): void {
+  for (const [dir, vars] of buildDirEnvs(ctx, names))
+    writeEnvBlock(join(worktreeDir, dir, '.env'), vars)
 }
 
 export function removeServiceEnvs(ctx: Ctx, worktreeDir: string): void {
@@ -36,7 +53,7 @@ export async function doAllocate(
     if (!reuse) await provisionSet(providers, ctx, n)
     try {
       state.sets[String(n)] = buildSetRecord(providers, ctx, n, { worktree: worktreeDir, branch })
-      writeServiceEnvs(ctx, worktreeDir, collectEnv(providers, ctx, n))
+      writeServiceEnvs(ctx, worktreeDir, planNames(providers, ctx, n))
       ensureGitignore(ctx.projectRoot, ['.env'])
       return n
     } catch (e) {

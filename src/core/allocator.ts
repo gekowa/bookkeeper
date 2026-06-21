@@ -34,15 +34,15 @@ export async function provisionSet(providers: ResourceProvider[], ctx: Ctx, n: n
   }
 }
 
-export function collectEnv(providers: ResourceProvider[], ctx: Ctx, n: number): Record<string, string> {
-  return Object.assign({}, ...providers.map(p => p.envVars(n, ctx)))
+export function planNames(providers: ResourceProvider[], ctx: Ctx, n: number): ResourceNames {
+  return Object.assign({ ports: {} }, ...providers.map(p => p.plan(n, ctx)))
 }
 
 export function buildSetRecord(
   providers: ResourceProvider[], ctx: Ctx, n: number,
   owner: SetRecord['owner'],
 ): SetRecord {
-  const names: Partial<ResourceNames> = Object.assign({}, ...providers.map(p => p.plan(n, ctx)))
+  const names = planNames(providers, ctx, n)
   const resources: SetRecord['resources'] = {}
   for (const [svc, port] of Object.entries(names.ports ?? {})) resources[svc] = { port }
   if (names.database) resources.postgres = { database: names.database }
