@@ -52,8 +52,9 @@ export async function doAllocate(
     const { n, reuse } = await resolveSet(providers, ctx, state, maxAttempts(ctx))
     if (!reuse) await provisionSet(providers, ctx, n)
     try {
-      state.sets[String(n)] = buildSetRecord(providers, ctx, n, { worktree: worktreeDir, branch })
-      writeServiceEnvs(ctx, worktreeDir, planNames(providers, ctx, n))
+      const names = planNames(providers, ctx, n)
+      state.sets[String(n)] = buildSetRecord(names, { worktree: worktreeDir, branch })
+      writeServiceEnvs(ctx, worktreeDir, names)
       ensureGitignore(ctx.projectRoot, ['.env'])
       return n
     } catch (e) {

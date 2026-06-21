@@ -39,10 +39,9 @@ export function planNames(providers: ResourceProvider[], ctx: Ctx, n: number): R
 }
 
 export function buildSetRecord(
-  providers: ResourceProvider[], ctx: Ctx, n: number,
+  names: ResourceNames,
   owner: SetRecord['owner'],
 ): SetRecord {
-  const names = planNames(providers, ctx, n)
   const resources: SetRecord['resources'] = {}
   for (const [svc, port] of Object.entries(names.ports ?? {})) resources[svc] = { port }
   if (names.database) resources.postgres = { database: names.database }
