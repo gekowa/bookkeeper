@@ -75,13 +75,19 @@ project_name: foo
 
 services:
   backend:
-    type: django          # django | fastapi
+    type: django          # django | fastapi | arq | celery
     port_base: 10000
+    dir: backend          # 启动命令运行的目录（相对 worktree 根，缺省为根 `.`）
     # command:            # 可选，覆盖按 type 推导的默认启动命令
     # app: app.main:app   # fastapi 专用，喂给默认 uvicorn 模板
   frontend:
     type: vite
     port_base: 10100
+    dir: frontend
+  worker:                 # arq/celery worker：无端口，不写 port_base
+    type: arq             # arq → uv run arq {app}.WorkerSettings
+    dir: backend          # 通常与后端同目录，复用后端代码与 .env
+    app: app.worker
 
 infra:
   postgres:
@@ -105,17 +111,24 @@ infra:
 
 ### 默认启动命令（按 type 推导，`{port}` 由 bk 填）
 
-| type | 默认命令 |
-|------|---------|
-| `django` | `uv run python manage.py runserver 0.0.0.0:{port}` |
-| `fastapi` | `uv run uvicorn {app} --port {port}` |
-| `vite` | `npm run dev -- --port {port}` |
+| type | 默认命令 | 端口 |
+|------|---------|------|
+| `django` | `uv run python manage.py runserver 0.0.0.0:{port}` | 需要 |
+| `fastapi` | `uv run uvicorn {app} --port {port}` | 需要 |
+| `vite` | `npm run dev -- --port {port}` | 需要 |
+| `arq` | `uv run arq {app}.WorkerSettings` | 无 |
+| `celery` | `uv run celery -A {app} worker` | 无 |
 
 Python 项目一律用 `uv`。
 
+### service 目录与无端口 worker
+
+- **`dir`**：每个 service 的启动命令在该目录下运行（相对 worktree 根，缺省为根 `.`）。monorepo 里 `backend/`、`frontend/` 各填自己的目录，`bk start` 才能在对的地方跑起来。`bk init` 会按侦测到的子目录自动写好 `dir`。
+- **无端口 worker（arq/celery）**：后台任务进程不监听端口，因此**不写 `port_base`**——bk 不为它分配端口、`bk list` 也不展示它（它不占独立资源，复用同目录后端的数据库/Redis/桶）。`bk init` 侦测到 backend 的 `pyproject.toml` 含 arq/celery 依赖时，会生成一段**注释掉的 worker stub**，取消注释并把 `app` 填成 WorkerSettings/celery app 所在模块即可启用。
+
 ## 配置注入
 
-`bk allocate` 时（即 `bk worktree create` 一步到位时），bk 在项目 `.env` 里写入一个**标记块**，只动块内、绝不碰你已有的 secrets：
+`bk allocate` 时（即 `bk worktree create` 一步到位时），bk 往**每个 service 目录**（`dir`，缺省为 worktree 根）的 `.env` 里写入一个**标记块**，只动块内、绝不碰你已有的 secrets：
 
 ```dotenv
 # >>> bk managed >>>
@@ -134,8 +147,9 @@ BK_MINIO_BUCKET=foo-2
 # <<< bk managed <<<
 ```
 
-- 连接信息走这些环境变量；**监听端口走启动命令参数**（Django/FastAPI/Vite 都原生读 `.env`）。
-- `.env` 含本机私有的真实分配值，`bk init` 会把它加进 `.gitignore`。
+- 连接信息走这些环境变量；**监听端口走启动命令参数**（Django/FastAPI/Vite/arq/celery 都原生读各自目录下的 `.env`）。
+- **写在每个 service 的目录里**：因为服务在自己的 `dir` 下启动，标记块就写进该目录的 `.env`（同目录的多个 service——如后端 + worker——共用一份）。这样 pydantic-settings、Vite 等"按 cwd 找 `.env`"的加载器都能直接读到。
+- `.env` 含本机私有的真实分配值，`bk init` 会把它加进 `.gitignore`（根 `.gitignore` 的 `.env` 规则递归覆盖子目录）。
 - **不写任何额外的 sidecar 或模板文件。**
 
 > 时序保证：`bk worktree create` 返回那一刻，`.env` 已写好且指向正确的库。因此你/AI 任何时候跑 `uv run python manage.py migrate` / seed，都会落进正确的库。**migrate/seed 何时跑由你决定，bk 不代劳。**
@@ -164,7 +178,7 @@ $ bk worktree create feature/login
 bk start [service]
 ```
 
-把每个 service 填好端口的启动命令跑起来：自动探测 **tmux → iTerm → 降级打印**，每个 service 一个 pane（`--tmux` / `--iterm` / `--print` 可强制）。**bk 不监管进程**——停止/重启/看输出都交给终端。
+把每个 service 的启动命令**在其 `dir` 下**跑起来：自动探测 **tmux → iTerm → 降级打印**，每个 service 一个 pane（`--tmux` / `--iterm` / `--print` 可强制）。无端口 worker（arq/celery）和普通服务一样在 pane 中启动。**bk 不监管进程**——停止/重启/看输出都交给终端。
 
 ### 观测
 
@@ -241,4 +255,4 @@ bk destroy <n>
 
 Node/TS 实现，`npm i -g bookkeeper`。Node 是前后端项目的最大公约数（未来支持 Java 项目时，本机不一定有 Python，但一定有 Node）。
 
-首批支持：**Django、FastAPI、Vite**；Java、其他 Node 框架后续再说。
+首批支持：**Django、FastAPI、Vite**，外加无端口 worker **arq、celery**；Java、其他 Node 框架后续再说。
