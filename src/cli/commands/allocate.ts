@@ -13,6 +13,18 @@ import { loadCtx, maxAttempts, runCommand } from '../context.js'
 import { success, info } from '../output.js'
 import { fingerprint } from '../../config/fingerprint.js'
 
+export function serviceEnvDirs(ctx: Ctx): string[] {
+  return [...new Set(ctx.config.services.map(s => s.dir ?? '.'))]
+}
+
+export function writeServiceEnvs(ctx: Ctx, worktreeDir: string, vars: Record<string, string>): void {
+  for (const d of serviceEnvDirs(ctx)) writeEnvBlock(join(worktreeDir, d, '.env'), vars)
+}
+
+export function removeServiceEnvs(ctx: Ctx, worktreeDir: string): void {
+  for (const d of serviceEnvDirs(ctx)) removeEnvBlock(join(worktreeDir, d, '.env'))
+}
+
 export async function doAllocate(
   ctx: Ctx, worktreeDir: string, branch: string,
   providers: ResourceProvider[] = activeProviders(ctx),
@@ -24,7 +36,7 @@ export async function doAllocate(
     if (!reuse) await provisionSet(providers, ctx, n)
     try {
       state.sets[String(n)] = buildSetRecord(providers, ctx, n, { worktree: worktreeDir, branch })
-      writeEnvBlock(join(worktreeDir, '.env'), collectEnv(providers, ctx, n))
+      writeServiceEnvs(ctx, worktreeDir, collectEnv(providers, ctx, n))
       ensureGitignore(ctx.projectRoot, ['.env'])
       return n
     } catch (e) {
@@ -55,7 +67,7 @@ export function registerAllocate(program: Command) {
         const n = findSetByWorktree(state, wt)
         if (!n) { info('当前 worktree 未分配资源'); return }
         deallocateInState(state, n)
-        removeEnvBlock(join(wt, '.env'))
+        removeServiceEnvs(ctx, wt)
         success(`Set ${n} 已退回池子（资源保留）`)
       })
     }))

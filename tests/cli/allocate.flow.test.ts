@@ -1,8 +1,8 @@
 // tests/cli/allocate.flow.test.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'; import { join } from 'node:path'
-import { doAllocate } from '../../src/cli/commands/allocate.js'
+import { doAllocate, serviceEnvDirs } from '../../src/cli/commands/allocate.js'
 import { readState } from '../../src/state/store.js'
 import { fakeProvider } from '../helpers/fakeProvider.js'
 import type { Ctx } from '../../src/core/types.js'
@@ -40,5 +40,27 @@ describe('doAllocate', () => {
     expect(destroy).toHaveBeenCalledWith(1, expect.anything())
     const s = await readState('foo')
     expect(s.sets['1']).toBeUndefined()  // nothing persisted
+  })
+
+  it('service 有 dir → 写到子目录 .env、不写 worktree 根', async () => {
+    mkdirSync(join(wt, 'backend'))
+    const c: Ctx = { projectRoot: wt, config: { project_name: 'foo', infra: {},
+      services: [{ name: 'backend', type: 'django', port_base: 10000, dir: 'backend' }] } }
+    await doAllocate(c, wt, 'feature/x')
+    expect(existsSync(join(wt, 'backend', '.env'))).toBe(true)
+    expect(readFileSync(join(wt, 'backend', '.env'), 'utf8')).toContain('# >>> bk managed >>>')
+    expect(existsSync(join(wt, '.env'))).toBe(false)
+  })
+
+  it('多个 service 共享同一 dir → 去重，只写一份', async () => {
+    mkdirSync(join(wt, 'backend'))
+    const c: Ctx = { projectRoot: wt, config: { project_name: 'foo', infra: {},
+      services: [
+        { name: 'backend', type: 'fastapi', port_base: 10000, app: 'app.main:app', dir: 'backend' },
+        { name: 'worker', type: 'arq', app: 'app.worker', dir: 'backend' },
+      ] } }
+    expect(serviceEnvDirs(c)).toEqual(['backend'])
+    await doAllocate(c, wt, 'feature/x')
+    expect(existsSync(join(wt, 'backend', '.env'))).toBe(true)
   })
 })
