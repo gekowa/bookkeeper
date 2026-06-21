@@ -79,4 +79,16 @@ infra: {}
 `)
     expect(loadConfig(root).services[0].dir).toBe('backend')
   })
+  it('透传 envs 字段', () => {
+    write(`project_name: foo
+services:
+  frontend:
+    type: vite
+    port_base: 10100
+    envs:
+      VITE_API_BASE: http://localhost:{backend.port}
+infra: {}
+`)
+    expect(loadConfig(root).services[0].envs).toEqual({ VITE_API_BASE: 'http://localhost:{backend.port}' })
+  })
 })

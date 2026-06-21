@@ -12,7 +12,7 @@ export function loadConfig(projectRoot: string): ProjectConfig {
     if (!s?.type) throw new BkError(Codes.CONFIG_INVALID, `service ${name} 缺少 type`)
     if (s.port_base !== undefined && typeof s.port_base !== 'number')
       throw new BkError(Codes.CONFIG_INVALID, `service ${name} 的 port_base 必须是数字`)
-    return { name, type: s.type, port_base: s.port_base, command: s.command, app: s.app, dir: s.dir }
+    return { name, type: s.type, port_base: s.port_base, command: s.command, app: s.app, dir: s.dir, envs: s.envs }
   })
   return {
     project_name: raw.project_name,
