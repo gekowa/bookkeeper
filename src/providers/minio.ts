@@ -41,6 +41,5 @@ export function createMinioProvider(): ResourceProvider {
         await c.removeBucket(b)
       } catch (e) { wrap(ctx, e) }
     },
-    envVars: (n, ctx) => ({ BK_MINIO_BUCKET: bucket(n, ctx) }),
   }
 }

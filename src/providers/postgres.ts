@@ -37,6 +37,5 @@ export function createPostgresProvider(): ResourceProvider {
         `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=$1 AND pid<>pg_backend_pid()`, [name])
       await c.query(`DROP DATABASE IF EXISTS "${name}"`)
     }),
-    envVars: (n, ctx) => ({ BK_DB_NAME: dbName(n, ctx) }),
   }
 }

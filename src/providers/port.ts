@@ -26,6 +26,5 @@ export function createPortProvider(): ResourceProvider {
     },
     provision: async () => {},
     destroy: async () => {},
-    envVars: () => ({}),
   }
 }

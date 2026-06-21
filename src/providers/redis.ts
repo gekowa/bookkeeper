@@ -24,8 +24,5 @@ export function createRedisProvider(): ResourceProvider {
     },
     provision: async () => {},
     destroy: async () => {},   // key_prefix 可选 SCAN+DEL，首批不做
-    envVars: (n, ctx): Record<string, string> => cfg(ctx).isolation === 'db_number'
-      ? { BK_REDIS_DB: String(n) }
-      : { BK_REDIS_PREFIX: prefix(n, ctx) },
   }
 }

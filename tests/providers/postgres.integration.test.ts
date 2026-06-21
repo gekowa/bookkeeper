@@ -28,7 +28,6 @@ d('postgres provider', () => {
     expect(await p.probe(2, ctx)).toBe(true)
     await p.provision(2, ctx)
     expect(await p.probe(2, ctx)).toBe(false)   // 已存在 → 跳号
-    expect(p.envVars(2, ctx).BK_DB_NAME).toBe('foo_2')
     await p.destroy(2, ctx)
     expect(await p.probe(2, ctx)).toBe(true)
   })
