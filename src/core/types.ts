@@ -1,12 +1,13 @@
-export type ServiceType = 'django' | 'fastapi' | 'vite'
+export type ServiceType = 'django' | 'fastapi' | 'vite' | 'arq' | 'celery'
 export type RedisIsolation = 'key_prefix' | 'db_number'
 
 export interface ServiceConfig {
   name: string
   type: ServiceType
-  port_base: number
+  port_base?: number
   command?: string
   app?: string
+  dir?: string
 }
 export interface InfraConfig {
   postgres?: { host: string; port: number; username: string; password: string }

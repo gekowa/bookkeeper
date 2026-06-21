@@ -44,13 +44,39 @@ infra: {}
 `)
     expect(() => loadConfig(root)).toThrow(/type/)
   })
-  it('service 缺 port_base 抛 CONFIG_INVALID', () => {
+  it('service 无 port_base 视为 worker，正常加载', () => {
+    write(`project_name: foo
+services:
+  worker:
+    type: arq
+    dir: backend
+    app: app.worker
+infra: {}
+`)
+    const c = loadConfig(root)
+    expect(c.services[0].name).toBe('worker')
+    expect(c.services[0].port_base).toBeUndefined()
+    expect(c.services[0].dir).toBe('backend')
+  })
+  it('port_base 存在但非数字 → 抛 CONFIG_INVALID', () => {
     write(`project_name: foo
 services:
   backend:
     type: django
+    port_base: not-a-number
 infra: {}
 `)
     expect(() => loadConfig(root)).toThrow(/port_base/)
+  })
+  it('透传 dir 字段', () => {
+    write(`project_name: foo
+services:
+  backend:
+    type: django
+    port_base: 10000
+    dir: backend
+infra: {}
+`)
+    expect(loadConfig(root).services[0].dir).toBe('backend')
   })
 })
