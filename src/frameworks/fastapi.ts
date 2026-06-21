@@ -12,6 +12,8 @@ export const fastapi: FrameworkAdapter = {
   defaultStartCommand: (svc, port) => {
     if (!svc.app) throw new BkError(Codes.CONFIG_INVALID,
       `fastapi service ${svc.name} 需在 config 设置 app（如 app.main:app）或 command`)
+    if (port === undefined) throw new BkError(Codes.CONFIG_INVALID,
+      `fastapi service ${svc.name} 需要端口（设置 port_base）`)
     return `uv run uvicorn ${svc.app} --port ${port}`
   },
 }

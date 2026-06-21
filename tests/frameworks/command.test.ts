@@ -12,6 +12,14 @@ describe('defaultStartCommand', () => {
     expect(() => adapterFor('fastapi').defaultStartCommand({ name: 'b', type: 'fastapi', port_base: 10000 }, 10002))
       .toThrow(/CONFIG_INVALID|app/)
   })
+  it('django 缺端口 → 抛 CONFIG_INVALID', () => {
+    expect(() => adapterFor('django').defaultStartCommand({ name: 'b', type: 'django' }))
+      .toThrow(/CONFIG_INVALID|端口|port/)
+  })
+  it('vite 缺端口 → 抛 CONFIG_INVALID', () => {
+    expect(() => adapterFor('vite').defaultStartCommand({ name: 'f', type: 'vite' }))
+      .toThrow(/CONFIG_INVALID|端口|port/)
+  })
   it('adapterFor 未知 type → 抛错', () => {
     // @ts-expect-error 故意传入非法 type 验证运行时防御
     expect(() => adapterFor('nope')).toThrow(/未知|nope/)
