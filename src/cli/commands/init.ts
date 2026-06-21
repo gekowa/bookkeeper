@@ -17,6 +17,22 @@ function detectWorkerLibs(dir: string): ('arq' | 'celery')[] {
   return libs
 }
 
+function detectViteApiEnvs(dir: string): { name: string; url: string }[] {
+  const files = ['.env', '.env.example', '.env.local', '.env.development']
+  const out: { name: string; url: string }[] = []
+  const seen = new Set<string>()
+  for (const f of files) {
+    const p = join(dir, f)
+    if (!existsSync(p)) continue
+    for (const line of readFileSync(p, 'utf8').split('\n')) {
+      const m = line.match(
+        /^\s*(VITE_[A-Z0-9_]+)\s*=\s*["']?(https?:\/\/[^\s"']*(?:localhost|127\.0\.0\.1)[^\s"']*)["']?\s*$/)
+      if (m && !seen.has(m[1])) { seen.add(m[1]); out.push({ name: m[1], url: m[2] }) }
+    }
+  }
+  return out
+}
+
 export function buildConfigDraft(projectDir: string): string {
   const subdirs = readdirSync(projectDir)
     .filter(d => { try { return statSync(join(projectDir, d)).isDirectory() } catch { return false } })
@@ -31,6 +47,19 @@ export function buildConfigDraft(projectDir: string): string {
   for (const s of services) {
     lines.push(`  ${s.name}:`, `    type: ${s.type}`, `    port_base: ${base}`, `    dir: ${s.dir}`)
     if (s.type === 'fastapi') lines.push(`    # app: app.main:app   # TODO fastapi 入口`)
+    if (s.type === 'vite') {
+      const target = services.find(x => x.type !== 'vite')?.name ?? 'backend'
+      const detected = detectViteApiEnvs(join(projectDir, s.dir))
+      if (detected.length) {
+        lines.push('    envs:')
+        for (const e of detected)
+          lines.push(`      ${e.name}: ${e.url.replace(/:(\d+)/, `:{${target}.port}`)}`)
+      } else {
+        lines.push(
+          '    # envs:                                        # 取消注释并按需填写',
+          `    #   VITE_API_BASE: http://localhost:{${target}.port}`)
+      }
+    }
     for (const lib of detectWorkerLibs(join(projectDir, s.dir))) {
       lines.push(
         `  # ${s.name}_worker:`,

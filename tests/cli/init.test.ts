@@ -60,4 +60,17 @@ describe('buildConfigDraft', () => {
       rmSync(wdir, { recursive: true, force: true })
     }
   })
+
+  it('vite dir 有 .env.example 含 VITE_API_BASE → 写 envs（端口换占位符）', () => {
+    writeFileSync(join(dir, 'frontend', '.env.example'), 'VITE_API_BASE=http://localhost:8000/api\n')
+    const yml = buildConfigDraft(dir)
+    expect(yml).toMatch(/frontend:[\s\S]*    envs:/)
+    expect(yml).toContain('      VITE_API_BASE: http://localhost:{backend.port}/api')
+  })
+
+  it('vite dir 无 .env* → 写注释 envs stub', () => {
+    const yml = buildConfigDraft(dir)
+    expect(yml).toContain('    # envs:')
+    expect(yml).toContain('    #   VITE_API_BASE: http://localhost:{backend.port}')
+  })
 })
