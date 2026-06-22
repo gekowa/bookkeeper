@@ -15,7 +15,7 @@ describe('buildLaunchSpecs', () => {
   it('据 set 端口生成各 service 命令', () => {
     const specs = buildLaunchSpecs(ctx, set, '/wt')
     expect(specs[0].command).toBe('uv run python manage.py runserver 0.0.0.0:10002')
-    expect(specs[1].command).toBe('npm run dev -- --port 10102')
+    expect(specs[1].command).toBe('npm run dev -- --port 10102 --strictPort')
     expect(specs[0].cwd).toBe('/wt')
   })
   it('only 过滤单个 service', () => {
