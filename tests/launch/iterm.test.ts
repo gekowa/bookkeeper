@@ -30,19 +30,25 @@ describe('buildItermScript', () => {
 
   it('按 order 把第 k 个 service 的命令写进对应 session，且 cd 到 cwd', () => {
     const specs = mk(3)
-    const plan = planGrid(3) // order = [0,2,1]
-    const lines = buildItermScript(specs, plan)
-    // service0 → s{order[0]}=s0
-    expect(lines).toContain('tell s0')
-    expect(lines).toContain('write text "cd /w/0 && run 0"')
-    // service2 → s{order[2]}=s1
-    expect(lines).toContain('write text "cd /w/2 && run 2"')
+    const plan = planGrid(3)
+    expect(plan.order).toEqual([0, 2, 1]) // 固定映射，若 planGrid 变了此处先报警
+    const text = buildItermScript(specs, plan).join('\n')
+    // service0 → s0：tell 紧跟其 write
+    expect(text).toContain('tell s0\nwrite text "cd /w/0 && run 0"')
+    // service2 → s1：证明走的是 order 映射而非 service 下标
+    expect(text).toContain('tell s1\nwrite text "cd /w/2 && run 2"')
   })
 
   it('命令与路径中的双引号被转义', () => {
     const specs: LaunchSpec[] = [{ name: 'a', command: 'echo "hi"', cwd: '/w/a b' }]
     const lines = buildItermScript(specs, planGrid(1)).join('\n')
     expect(lines).toContain('write text "cd /w/a b && echo \\"hi\\""')
+  })
+
+  it('cwd 中的双引号也被转义', () => {
+    const specs: LaunchSpec[] = [{ name: 'a', command: 'run', cwd: '/w/a"b' }]
+    const text = buildItermScript(specs, planGrid(1)).join('\n')
+    expect(text).toContain('write text "cd /w/a\\"b && run"')
   })
 
   it('n=1 不产生任何 split', () => {
