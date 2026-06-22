@@ -24,7 +24,7 @@ function findCurrentSet(state: StateFile, currentDir?: string): string | undefin
   return best
 }
 
-function renderSet(n: string, r: StateFile['sets'][string]): string {
+export function renderSet(n: string, r: StateFile['sets'][string]): string {
   const lines = [`  Set ${n}`]
   for (const [k, v] of Object.entries(r.resources)) {
     if (v && 'port' in v) lines.push(`    - ${k} ${v.port}`)

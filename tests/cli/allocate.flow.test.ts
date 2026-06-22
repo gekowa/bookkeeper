@@ -26,7 +26,7 @@ const provs = () => [createPortProvider(), fakeProvider({ kind: 'pg', plan: () =
 
 describe('doAllocate', () => {
   it('分配号 1、写 .env 标记块（含 BK_DB_NAME）、写 state 为 allocated', async () => {
-    const n = await doAllocate(ctx(), wt, 'feature/x', provs())
+    const { n } = await doAllocate(ctx(), wt, 'feature/x', provs())
     expect(n).toBe(1)
     const env = readFileSync(join(wt, '.env'), 'utf8')
     expect(env).toContain('# >>> bk managed >>>')
@@ -35,6 +35,24 @@ describe('doAllocate', () => {
     expect(s.sets['1'].status).toBe('allocated')
     expect(s.sets['1'].owner?.worktree).toBe(wt)
     expect((s.sets['1'].resources['backend'] as any).port).toBe(10001)
+  })
+
+  it('同目录二次 allocate → 幂等：复用既有 Set、不新增、不重 provision、不覆盖 .env', async () => {
+    const provision = vi.fn(async () => {})
+    const fake = fakeProvider({ kind: 'fake', provision, plan: () => ({ database: 'x' }) })
+
+    const first = await doAllocate(ctx(), wt, 'feature/x', [fake])
+    const env1 = readFileSync(join(wt, '.env'), 'utf8')
+    expect(provision).toHaveBeenCalledTimes(1)
+
+    const second = await doAllocate(ctx(), wt, 'feature/x', [fake])
+    expect(second.reused).toBe(true)
+    expect(second.n).toBe(first.n)
+    expect(provision).toHaveBeenCalledTimes(1)  // 未再 provision
+
+    const s = await readState('foo')
+    expect(Object.keys(s.sets)).toHaveLength(1)  // 未新增 Set
+    expect(readFileSync(join(wt, '.env'), 'utf8')).toBe(env1)  // .env 未被覆盖
   })
 
   it('provision 后写 .env 失败 → 回滚已建资源、不持久化 state', async () => {
