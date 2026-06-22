@@ -80,11 +80,12 @@ services:
     dir: backend          # 启动命令运行的目录（相对 worktree 根，缺省为根 `.`）
     # command:            # 可选，覆盖按 type 推导的默认启动命令
     # app: app.main:app   # fastapi 专用，喂给默认 uvicorn 模板
-    # post_allocate:      # 可选，allocate 完成后在该目录执行的 shell 命令
+    post_allocate: uv run python manage.py migrate && uv run python manage.py seed  # 分配落地后自动跑（可选）
   frontend:
     type: vite
     port_base: 10100
     dir: frontend
+    post_allocate: npm install  # 分配落地后自动跑（可选）
     envs:                                   # 前端要写进 .env 的变量（值支持占位符）
       VITE_API_BASE: http://localhost:{backend.port}
   worker:                 # arq/celery worker：无端口，不写 port_base
@@ -159,7 +160,7 @@ VITE_API_BASE=http://localhost:10001
 - **写在每个 service 的目录里**：同目录多个 service（如后端 + worker）共用一份，env 需求合并。
 - `.env` 含本机私有分配值，`bk init` 会把它加进 `.gitignore`。
 
-> 时序保证：`bk worktree create` 返回那一刻，`.env` 已写好且指向正确的库。因此你/AI 任何时候跑 `uv run python manage.py migrate` / seed，都会落进正确的库。资源初始化流程由你的项目决定（通常 migration 自动、seed 手动），bk 提供钩子但不代劳。
+> 时序保证：`bk worktree create` 返回那一刻，`.env` 已写好且指向正确的库。因此你/AI 任何时候跑 `uv run python manage.py migrate` / seed，都会落进正确的库。资源初始化流程由你的项目决定（通常 migration 自动、seed 手动），bk 提供钩子但不代劳。想自动化可配 post_allocate 钩子，见下节。
 
 ### post_allocate 钩子
 
@@ -176,8 +177,8 @@ services:
 
 **执行特征**：
 - **时序**：仅在 allocate 实际写入 `.env` 时执行（复用已有资源、同目录重复 allocate 不触发）。
-- **环境**：在 service 的 `dir` 下执行，当前 worktree 的 `BK_DB_NAME`、`BK_REDIS_DB`、`BK_MINIO_BUCKET`、`BK_N` 已注入，可在命令中引用。
-- **失败策略**：快速失败、无回滚——命令失败则 allocate 失败，你需要手动修复并重试（参看 `bk setup`）。
+- **环境**：钩子在 service 的 `dir` 下运行；注入该目录写进 `.env` 的同一批 `BK_*` 变量，外加 `BK_N`（资源集编号），可在命令中引用。
+- **失败策略**：命令失败采用 fail-fast（停在出错的 service，不跑后续），**worktree、已分配资源、.env 全部保留、不回滚**；修好后用 `bk setup` 重跑钩子，无需重建 worktree。
 - **重新执行**：新 worktree 创建后无需手动复跑；或用 `bk setup` 为当前 worktree 重新执行所有钩子。
 
 ## 使用
@@ -253,7 +254,7 @@ bk deallocate   # 当前 worktree 解绑，资源退回池子（不销毁）
 
 `bk allocate` 时可加 `--no-hook` 标志，跳过 post_allocate 钩子的执行。
 
-### 初始化钩子
+### 重跑 setup 钩子
 
 ```bash
 bk setup
@@ -263,6 +264,8 @@ bk setup
 
 - allocate 时因钩子失败而中断，修复问题后需要重新初始化资源。
 - 手动修改配置或资源状态后，需要重新运行初始化逻辑。
+
+当前 worktree 未分配资源时 `bk setup` 报错（提示先 `bk allocate`）。
 
 ### 删除 worktree
 
