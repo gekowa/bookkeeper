@@ -1,6 +1,6 @@
 {
   "name": "bookkeeper",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "type": "module",
   "bin": {
     "bk": "dist/cli/index.js"
