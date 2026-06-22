@@ -40,4 +40,14 @@ describe('worktree create/delete', () => {
     const s = await readState('foo')
     expect(Object.values(s.sets)[0].status).toBe('free')
   })
+  it('create 默认跑 post_allocate；--no-hook 跳过', async () => {
+    const c: Ctx = { projectRoot: repo, config: { project_name: 'foo',
+      services: [{ name: 'backend', type: 'django', port_base: 10000,
+        post_allocate: 'echo hi > hook.txt' }], infra: {} } }
+    const dir = await createWorktree(c, 'feature/h', { allocate: true })
+    expect(existsSync(join(dir, 'hook.txt'))).toBe(true)
+
+    const dir2 = await createWorktree(c, 'feature/nh', { allocate: true, hook: false })
+    expect(existsSync(join(dir2, 'hook.txt'))).toBe(false)
+  })
 })
