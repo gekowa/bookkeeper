@@ -58,7 +58,7 @@ describe('planGrid 均匀度（列宽比/行高比 ≤ 2）', () => {
       expect(ratio(rects.map(r => r.h))).toBeLessThanOrEqual(2 + 1e-9)
     })
   }
-  for (const n of [1, 2, 4]) {
+  for (const n of [1, 2, 4, 16]) {
     it(`n=${n}: 严格等分（所有 pane 等面积）`, () => {
       const rects = [...simulate(planGrid(n)).values()]
       const areas = rects.map(r => r.w * r.h)
