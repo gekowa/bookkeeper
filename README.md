@@ -80,10 +80,12 @@ services:
     dir: backend          # 启动命令运行的目录（相对 worktree 根，缺省为根 `.`）
     # command:            # 可选，覆盖按 type 推导的默认启动命令
     # app: app.main:app   # fastapi 专用，喂给默认 uvicorn 模板
+    post_allocate: uv run python manage.py migrate && uv run python manage.py seed  # 分配落地后自动跑（可选）
   frontend:
     type: vite
     port_base: 10100
     dir: frontend
+    post_allocate: npm install  # 分配落地后自动跑（可选）
     envs:                                   # 前端要写进 .env 的变量（值支持占位符）
       VITE_API_BASE: http://localhost:{backend.port}
   worker:                 # arq/celery worker：无端口，不写 port_base
@@ -158,7 +160,26 @@ VITE_API_BASE=http://localhost:10001
 - **写在每个 service 的目录里**：同目录多个 service（如后端 + worker）共用一份，env 需求合并。
 - `.env` 含本机私有分配值，`bk init` 会把它加进 `.gitignore`。
 
-> 时序保证：`bk worktree create` 返回那一刻，`.env` 已写好且指向正确的库。因此你/AI 任何时候跑 `uv run python manage.py migrate` / seed，都会落进正确的库。**migrate/seed 何时跑由你决定，bk 不代劳。**
+> 时序保证：`bk worktree create` 返回那一刻，`.env` 已写好且指向正确的库。因此你/AI 任何时候跑 `uv run python manage.py migrate` / seed，都会落进正确的库。资源初始化流程由你的项目决定（通常 migration 自动、seed 手动），bk 提供钩子但不代劳。想自动化可配 post_allocate 钩子，见下节。
+
+### post_allocate 钩子
+
+每个 service 可选配置 `post_allocate` 字段，指定一条 shell 命令。allocate 完成后（`.env` 已写入），bk 会在该 service 的目录（`dir`）执行该命令，**注入该目录的 `BK_*` 变量和 `BK_N`**，用于初始化资源（如运行数据库 migration、创建桶、初始化缓存等）。
+
+```yaml
+services:
+  backend:
+    type: django
+    port_base: 10000
+    dir: backend
+    post_allocate: uv run python manage.py migrate
+```
+
+**执行特征**：
+- **时序**：仅在 allocate 实际写入 `.env` 时执行（复用已有资源、同目录重复 allocate 不触发）。
+- **环境**：钩子在 service 的 `dir` 下运行；注入该目录写进 `.env` 的同一批 `BK_*` 变量，外加 `BK_N`（资源集编号），可在命令中引用。
+- **失败策略**：命令失败采用 fail-fast（停在出错的 service，不跑后续），**worktree、已分配资源、.env 全部保留、不回滚**；修好后用 `bk setup` 重跑钩子，无需重建 worktree。
+- **重新执行**：新 worktree 创建后无需手动复跑；或用 `bk setup` 为当前 worktree 重新执行所有钩子。
 
 ## 使用
 
@@ -170,13 +191,17 @@ VITE_API_BASE=http://localhost:10001
 bk worktree create <branch>
 ```
 
-约定：worktree 建在当前目录的**父目录**下，目录名为 `<project_name>.<branch>`（分支名里的 `/` 会净化为 `-`，git 分支名本身保持原样）。该命令会 git worktree add → 自动 allocate → 写 `.env`。加 `--no-allocate` 可只建 worktree、暂不占资源。
+约定：worktree 建在当前目录的**父目录**下，目录名为 `<project_name>.<branch>`（分支名里的 `/` 会净化为 `-`，git 分支名本身保持原样）。该命令会 git worktree add → 自动 allocate → 写 `.env` → **执行 post_allocate 钩子**。
 
 ```
 # 在 foo 的 main 目录下
 $ bk worktree create feature/login
-# → 创建 ../foo.feature-login，并分配资源、写好 .env
+# → 创建 ../foo.feature-login，并分配资源、写好 .env、执行配置的 post_allocate
 ```
+
+**可选标志**：
+- `--no-allocate`：只建 worktree、暂不占资源。
+- `--no-hook`：allocate 后跳过 post_allocate 钩子（需要资源但暂不初始化时用）。
 
 ### 启动服务
 
@@ -226,6 +251,21 @@ bk deallocate   # 当前 worktree 解绑，资源退回池子（不销毁）
 ```
 
 `bk allocate` 半途失败会**尽力回滚**到分配前的干净状态，不留孤儿资源。
+
+`bk allocate` 时可加 `--no-hook` 标志，跳过 post_allocate 钩子的执行。
+
+### 重跑 setup 钩子
+
+```bash
+bk setup
+```
+
+为当前 worktree 重新执行所有配置的 post_allocate 钩子。用于以下场景：
+
+- allocate 时因钩子失败而中断，修复问题后需要重新初始化资源。
+- 手动修改配置或资源状态后，需要重新运行初始化逻辑。
+
+当前 worktree 未分配资源时 `bk setup` 报错（提示先 `bk allocate`）。
 
 ### 删除 worktree
 

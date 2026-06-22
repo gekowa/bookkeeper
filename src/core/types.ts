@@ -9,6 +9,7 @@ export interface ServiceConfig {
   app?: string
   dir?: string
   envs?: Record<string, string>
+  post_allocate?: string
 }
 export interface InfraConfig {
   postgres?: { host: string; port: number; username: string; password: string }

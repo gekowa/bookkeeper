@@ -102,4 +102,28 @@ infra: {}
 `)
     expect(() => loadConfig(root)).toThrow(/CONFIG_INVALID|envs/)
   })
+  it('透传 post_allocate 标量', () => {
+    write(`project_name: foo
+services:
+  backend:
+    type: django
+    port_base: 10000
+    dir: backend
+    post_allocate: uv run python manage.py migrate && uv run python manage.py seed
+infra: {}
+`)
+    expect(loadConfig(root).services[0].post_allocate)
+      .toBe('uv run python manage.py migrate && uv run python manage.py seed')
+  })
+
+  it('未写 post_allocate → undefined', () => {
+    write(`project_name: foo
+services:
+  backend:
+    type: django
+    port_base: 10000
+infra: {}
+`)
+    expect(loadConfig(root).services[0].post_allocate).toBeUndefined()
+  })
 })
