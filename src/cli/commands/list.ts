@@ -1,9 +1,28 @@
 import type { Command } from 'commander'
+import { isAbsolute, relative, resolve } from 'node:path'
 import type { StateFile } from '../../state/schema.js'
 import { readState } from '../../state/store.js'
 import { pickNumber } from '../../core/numbering.js'
 import { loadCtx, runCommand } from '../context.js'
 import { plain } from '../output.js'
+
+/** child 是否就是 parent 或位于 parent 之下（含子目录） */
+function isWithin(parent: string, child: string): boolean {
+  const rel = relative(resolve(parent), resolve(child))
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))
+}
+
+/** 找出包含 currentDir 的已分配 set 号；嵌套时取路径最深（最具体）的那个 */
+function findCurrentSet(state: StateFile, currentDir?: string): string | undefined {
+  if (!currentDir) return undefined
+  let best: string | undefined
+  let bestLen = -1
+  for (const [n, r] of Object.entries(state.sets)) {
+    const wt = r.status === 'allocated' ? r.owner?.worktree : undefined
+    if (wt && isWithin(wt, currentDir) && wt.length > bestLen) { best = n; bestLen = wt.length }
+  }
+  return best
+}
 
 function renderSet(n: string, r: StateFile['sets'][string]): string {
   const lines = [`  Set ${n}`]
@@ -17,12 +36,19 @@ function renderSet(n: string, r: StateFile['sets'][string]): string {
   return lines.join('\n')
 }
 
-export function renderList(state: StateFile, projectName: string): string {
+export function renderList(state: StateFile, projectName: string, currentDir?: string): string {
   const out: string[] = [`Project Name: ${projectName}`, '']
-  for (const [n, r] of Object.entries(state.sets)) {
-    if (r.status !== 'allocated') continue
-    out.push(`Worktree: ${r.owner?.worktree}  (Set ${n})`)
+  const currentN = findCurrentSet(state, currentDir)
+  const pushWorktree = (n: string, r: StateFile['sets'][string]) => {
+    const tag = n === currentN ? '  ← 当前目录' : ''
+    out.push(`Worktree: ${r.owner?.worktree}  (Set ${n})${tag}`)
     out.push(renderSet(n, r).split('\n').slice(1).join('\n'), '')
+  }
+  // 当前目录所在 worktree 置顶并标识，其余按原序紧随其后
+  if (currentN) pushWorktree(currentN, state.sets[currentN])
+  for (const [n, r] of Object.entries(state.sets)) {
+    if (r.status !== 'allocated' || n === currentN) continue
+    pushWorktree(n, r)
   }
   const frees = Object.entries(state.sets).filter(([, r]) => r.status === 'free')
   if (frees.length) {
@@ -39,6 +65,6 @@ export function registerList(program: Command) {
   program.command('list').description('列出已分配 worktree、空闲池与下一个可用号')
     .action(() => runCommand(async () => {
       const ctx = loadCtx()
-      plain(renderList(await readState(ctx.config.project_name), ctx.config.project_name))
+      plain(renderList(await readState(ctx.config.project_name), ctx.config.project_name, process.cwd()))
     }))
 }
