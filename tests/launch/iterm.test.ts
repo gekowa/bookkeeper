@@ -55,4 +55,11 @@ describe('buildItermScript', () => {
     const lines = buildItermScript(mk(1), planGrid(1)).join('\n')
     expect(lines).not.toContain('split ')
   })
+
+  it('反斜杠被转义（避免破坏 AppleScript 字符串）', () => {
+    const specs: LaunchSpec[] = [{ name: 'a', command: 'run', cwd: '/w/a\\b' }]
+    const text = buildItermScript(specs, planGrid(1)).join('\n')
+    // 源串里的单个反斜杠应渲染成两个
+    expect(text).toContain('write text "cd /w/a\\\\b && run"')
+  })
 })

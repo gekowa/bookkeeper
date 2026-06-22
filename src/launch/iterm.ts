@@ -2,7 +2,8 @@ import { execa } from 'execa'
 import type { LaunchSpec } from './index.js'
 import { planGrid, type GridPlan } from './itermGrid.js'
 
-const esc = (s: string) => s.replace(/"/g, '\\"')
+// 转义反斜杠与双引号，安全嵌入 AppleScript 字符串字面量
+const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 
 // 把网格计划渲染成 osascript 逐行脚本：先开窗捕获 s0，再按 steps 分屏，最后按 order 写命令
 export function buildItermScript(specs: LaunchSpec[], plan: GridPlan): string[] {
