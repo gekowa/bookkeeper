@@ -88,6 +88,35 @@ describe('doAllocate', () => {
     const merged = readFileSync(join(wt, 'backend', '.env'), 'utf8')
     expect(merged.match(/# >>> bk managed >>>/g)?.length).toBe(1)
   })
+
+  it('reused=false → allocate 后跑 post_allocate（注入 BK_N）', async () => {
+    mkdirSync(join(wt, 'backend'))
+    const c: Ctx = { projectRoot: wt, config: { project_name: 'foo', infra: {},
+      services: [{ name: 'backend', type: 'django', port_base: 10000, dir: 'backend',
+        post_allocate: 'echo "$BK_N" > hook.txt' }] } }
+    await doAllocate(c, wt, 'feature/x', provs())
+    expect(readFileSync(join(wt, 'backend', 'hook.txt'), 'utf8').trim()).toBe('1')
+  })
+
+  it('幂等命中（reused）不重跑钩子', async () => {
+    mkdirSync(join(wt, 'backend'))
+    const c: Ctx = { projectRoot: wt, config: { project_name: 'foo', infra: {},
+      services: [{ name: 'backend', type: 'django', port_base: 10000, dir: 'backend',
+        post_allocate: 'echo x >> hook.txt' }] } }
+    await doAllocate(c, wt, 'feature/x', provs())
+    await doAllocate(c, wt, 'feature/x', provs())  // reused
+    const lines = readFileSync(join(wt, 'backend', 'hook.txt'), 'utf8').trim().split('\n')
+    expect(lines).toHaveLength(1)
+  })
+
+  it('opts.hook=false → 跳过钩子', async () => {
+    mkdirSync(join(wt, 'backend'))
+    const c: Ctx = { projectRoot: wt, config: { project_name: 'foo', infra: {},
+      services: [{ name: 'backend', type: 'django', port_base: 10000, dir: 'backend',
+        post_allocate: 'echo x > hook.txt' }] } }
+    await doAllocate(c, wt, 'feature/x', provs(), { hook: false })
+    expect(existsSync(join(wt, 'backend', 'hook.txt'))).toBe(false)
+  })
 })
 
 describe('buildDirEnvs', () => {

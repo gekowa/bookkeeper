@@ -15,6 +15,7 @@ import { loadCtx, maxAttempts, runCommand } from '../context.js'
 import { success, info, plain } from '../output.js'
 import { renderSet } from './list.js'
 import { fingerprint } from '../../config/fingerprint.js'
+import { runPostAllocate } from '../../hooks/postAllocate.js'
 
 export function serviceEnvDirs(ctx: Ctx): string[] {
   return [...new Set(ctx.config.services.map(s => s.dir ?? '.'))]
@@ -46,8 +47,9 @@ export function removeServiceEnvs(ctx: Ctx, worktreeDir: string): void {
 export async function doAllocate(
   ctx: Ctx, worktreeDir: string, branch: string,
   providers: ResourceProvider[] = activeProviders(ctx),
+  opts: { hook?: boolean } = {},
 ): Promise<{ n: number; reused: boolean; record: SetRecord }> {
-  return withState(ctx.config.project_name, async (state) => {
+  const result = await withState(ctx.config.project_name, async (state) => {
     // 幂等：当前目录若已分配，直接返回既有 Set，不重复创建资源、不覆盖 .env
     const existing = findSetByWorktree(state, worktreeDir)
     if (existing) return { n: Number(existing), reused: true, record: state.sets[existing] }
@@ -72,13 +74,21 @@ export async function doAllocate(
       throw e
     }
   })
+
+  // 钩子在持锁的 withState 之外、.env 写好之后跑：仅当本次实际分配（非幂等命中）且未 --no-hook
+  if (opts.hook !== false && !result.reused) {
+    const names = planNames(providers, ctx, result.n)
+    await runPostAllocate(ctx, worktreeDir, buildDirEnvs(ctx, names), result.n)
+  }
+  return result
 }
 
 export function registerAllocate(program: Command) {
   program.command('allocate').description('为当前 worktree 分配一套资源')
-    .action(() => runCommand(async () => {
+    .option('--no-hook', '分配后不运行 post_allocate 钩子')
+    .action((opts: { hook: boolean }) => runCommand(async () => {
       const ctx = loadCtx()
-      const { n, reused, record } = await doAllocate(ctx, process.cwd(), '(manual)')
+      const { n, reused, record } = await doAllocate(ctx, process.cwd(), '(manual)', undefined, { hook: opts.hook })
       if (reused) {
         info(`当前 worktree 已分配 Set ${n}，跳过重复分配。现有资源：`)
         plain(renderSet(String(n), record))
