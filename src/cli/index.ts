@@ -8,6 +8,7 @@ import { registerWorktree } from './commands/worktree.js'
 import { registerList } from './commands/list.js'
 import { registerStart } from './commands/start.js'
 import { registerDestroy } from './commands/destroy.js'
+import { registerSetup } from './commands/setup.js'
 
 const pkg = JSON.parse(
   readFileSync(fileURLToPath(new URL('../../package.json', import.meta.url)), 'utf8'),
@@ -21,4 +22,5 @@ registerWorktree(program)
 registerList(program)
 registerStart(program)
 registerDestroy(program)
+registerSetup(program)
 program.parseAsync(process.argv).catch(() => { process.exitCode = 1 })
