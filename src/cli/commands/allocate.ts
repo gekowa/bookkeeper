@@ -91,7 +91,7 @@ export function registerAllocate(program: Command) {
       const { n, reused, record } = await doAllocate(ctx, process.cwd(), '(manual)', undefined, { hook: opts.hook })
       if (reused) {
         info(`当前 worktree 已分配 Set ${n}，跳过重复分配。现有资源：`)
-        plain(renderSet(String(n), record))
+        plain(renderSet(String(n), record, ctx.config))
       } else {
         success(`已分配 Set ${n}，并写入 .env`)
       }

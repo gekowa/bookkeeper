@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import { renderList } from '../../src/cli/commands/list.js'
 import type { StateFile } from '../../src/state/schema.js'
+import type { ProjectConfig } from '../../src/core/types.js'
+
+const config: ProjectConfig = {
+  project_name: 'foo',
+  services: [{ name: 'backend', type: 'django' }],
+  infra: {
+    postgres: { host: 'h', port: 5432, username: 'u', password: 'p' },
+    minio: { endpoint: 'e', access_key: 'a', secret_key: 's' },
+  },
+}
 
 const state: StateFile = { project_name: 'foo', config_fingerprint: '', sets: {
   '1': { status: 'allocated', owner: { worktree: '/wt/foo.x', branch: 'x' },
@@ -18,7 +28,7 @@ const multi: StateFile = { project_name: 'foo', config_fingerprint: '', sets: {
 
 describe('renderList', () => {
   it('含 allocated worktree、free 池、下一个号', () => {
-    const out = renderList(state, 'foo')
+    const out = renderList(state, 'foo', config)
     expect(out).toContain('foo.x')
     expect(out).toContain('foo_1')
     expect(out).toContain('Unallocated')
@@ -27,20 +37,39 @@ describe('renderList', () => {
   })
 
   it('当前目录命中某 worktree 时，置顶并标识', () => {
-    const out = renderList(multi, 'foo', '/wt/foo.b')
+    const out = renderList(multi, 'foo', config, '/wt/foo.b')
     expect(out).toMatch(/foo\.b.*← 当前目录/)
     expect(out.indexOf('foo.b')).toBeLessThan(out.indexOf('foo.a'))
   })
 
   it('当前目录是 worktree 子目录时也命中', () => {
-    const out = renderList(multi, 'foo', '/wt/foo.b/backend/sub')
+    const out = renderList(multi, 'foo', config, '/wt/foo.b/backend/sub')
     expect(out).toMatch(/foo\.b.*← 当前目录/)
     expect(out.indexOf('foo.b')).toBeLessThan(out.indexOf('foo.a'))
   })
 
   it('当前目录不在任何 worktree 时，无标识、保持原序', () => {
-    const out = renderList(multi, 'foo', '/somewhere/else')
+    const out = renderList(multi, 'foo', config, '/somewhere/else')
     expect(out).not.toContain('← 当前目录')
     expect(out.indexOf('foo.a')).toBeLessThan(out.indexOf('foo.b'))
+  })
+
+  it('infra 不含 minio 时，不显示 MinIO（即使已持久化）', () => {
+    const noMinio: ProjectConfig = { ...config, infra: { postgres: config.infra.postgres } }
+    const out = renderList(state, 'foo', noMinio)
+    expect(out).not.toContain('MinIO bucket')
+    expect(out).toContain('foo_1') // postgres 仍在配置中，照常显示
+  })
+
+  it('services 不含某服务名时，不显示该端口行', () => {
+    const noBackend: ProjectConfig = { ...config, services: [] }
+    const out = renderList(state, 'foo', noBackend)
+    expect(out).not.toMatch(/- backend 10001/)
+  })
+
+  it('infra 不含 postgres 时，不显示 PostgreSQL 行', () => {
+    const noPg: ProjectConfig = { ...config, infra: { minio: config.infra.minio } }
+    const out = renderList(state, 'foo', noPg)
+    expect(out).not.toContain('PostgreSQL:')
   })
 })
