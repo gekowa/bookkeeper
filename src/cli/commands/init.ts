@@ -72,9 +72,19 @@ export function buildConfigDraft(projectDir: string): string {
   }
   if (!services.length) lines.push('  # TODO 未侦测到 service，请手动填写')
   lines.push('', 'infra:',
-    '  postgres: { host: localhost, port: 5432, username: postgres, password: postgres }',
-    '  redis: { host: localhost, port: 6379, isolation: db_number }',
-    '  minio: { endpoint: localhost:9000, access_key: minioadmin, secret_key: minioadmin }')
+    '  postgres:',
+    '    host: localhost',
+    '    port: 5432',
+    '    username: postgres',
+    '    password: postgres',
+    '  redis:',
+    '    host: localhost',
+    '    port: 6379',
+    '    isolation: db_number',
+    '  minio:',
+    '    endpoint: localhost:9000',
+    '    access_key: minioadmin',
+    '    secret_key: minioadmin')
   return lines.join('\n') + '\n'
 }
 
