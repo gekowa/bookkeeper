@@ -209,7 +209,24 @@ $ bk worktree create feature/login
 bk start [service]
 ```
 
-把每个 service 的启动命令**在其 `dir` 下**跑起来：自动探测 **tmux → iTerm → 降级打印**，每个 service 一个 pane（`--tmux` / `--iterm` / `--print` 可强制）。无端口 worker（arq/celery）和普通服务一样在 pane 中启动。**bk 不监管进程**——停止/重启/看输出都交给终端。
+把每个 service 的启动命令**在其 `dir` 下**跑起来：自动探测 **tmux → iTerm → 降级打印**，每个 service 一个 pane（`--tmux` / `--iterm` / `--print` 可强制）。无端口 worker（arq/celery）和普通服务一样在 pane 中启动。**bk 仍不守护进程**（不做崩溃自动重启、不做健康检查），但它记住自己启动了什么，因此可用 `bk stop` / `bk restart` 停止或重启（见下）。
+
+### 停止 / 重启服务
+
+```bash
+bk stop    [service]   # 停止当前 worktree 的服务（不带参数 = 全部）
+bk restart [service]   # 重启 = 停止 + 重读 bk_config.yml 后重新启动
+```
+
+`bk start` 成功派发后会记住自己启动了什么（iTerm 记每个 pane 的 session id，tmux 记 session 与 pane id），`stop` / `restart` 据此操作：
+
+- **iTerm**：关闭对应 pane 同时终止其中进程（含无端口 worker），不残留空窗口。
+- **tmux**：停全部 = `kill-session`，停单个 = `kill-pane`。
+- 句柄已失效（你手动关了窗口）→ 跳过、不报错（幂等）。
+- `restart` 没在跑时直接当 `start`；`start` 时若已有服务在运行会报错，提示改用 `restart`。
+- 用 `--print` 自己手动跑的服务 bk 没有句柄，不归 `stop` / `restart` 管。
+
+> **iTerm 注意**：若你在 iTerm 偏好里开启了「关闭仍在运行任务的会话需确认」，`stop` 关闭 pane 时可能弹确认框。可在 iTerm → Settings → Profiles → Session（或 General）关掉运行中会话的关闭确认，让 `stop` 静默生效。
 
 ### 观测
 

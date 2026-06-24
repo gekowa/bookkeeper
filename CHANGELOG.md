@@ -2,6 +2,12 @@
 
 本文件记录 BookKeeper（bk）的版本变更。
 
+## [Unreleased]
+
+### Added
+
+- `bk stop [service]` 与 `bk restart [service]`：停止 / 重启「由 `bk start` 启动」的当前 worktree 服务。`bk start` 成功后记录运行句柄（iTerm 存 session id、tmux 存 session 与 pane id）；`stop` 关闭 iTerm pane（含无端口 worker）或 `kill-session`/`kill-pane`，`restart` = 停止 + 重读配置后重启。句柄失效时幂等跳过；`bk start` 已在运行时报错提示改用 `restart`。
+
 ## [0.0.8] - 2026-06-24
 
 ### Fixed
