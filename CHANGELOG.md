@@ -2,7 +2,7 @@
 
 本文件记录 BookKeeper（bk）的版本变更。
 
-## [Unreleased]
+## [0.0.9] - 2026-06-24
 
 ### Added
 
