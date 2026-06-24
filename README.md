@@ -228,6 +228,8 @@ bk restart [service]   # 重启 = 停止 + 重读 bk_config.yml 后重新启动
 
 > **iTerm 注意**：若你在 iTerm 偏好里开启了「关闭仍在运行任务的会话需确认」，`stop` 关闭 pane 时可能弹确认框。可在 iTerm → Settings → Profiles → Session（或 General）关掉运行中会话的关闭确认，让 `stop` 静默生效。
 
+> **tmux 注意**：单个服务的 `restart` 若其余服务仍在同一 tmux session 中运行，可能因重建同名 session 冲突而报错——改用整组 `bk restart`（不带 service），或 `bk stop` 后再 `bk start`。
+
 ### 观测
 
 ```bash
