@@ -44,4 +44,18 @@ export interface SetRecord {
     minio?: { bucket: string }
   }
   created_at: string
+  run?: RunRecord
+}
+export interface RunService {
+  name: string
+  itermSessionId?: string   // strategy === 'iterm'：iTerm session 的 unique id
+  tmuxPaneId?: string       // strategy === 'tmux'：tmux pane id（如 %3），支持单服务停
+}
+export interface RunHandle {
+  strategy: 'tmux' | 'iterm'   // 'print' 不记录（bk 无句柄）
+  tmuxSession?: string         // strategy === 'tmux'：tmux session 名
+  services: RunService[]
+}
+export interface RunRecord extends RunHandle {
+  startedAt: string
 }
