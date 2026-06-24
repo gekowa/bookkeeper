@@ -1,0 +1,49 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+vi.mock('execa', () => ({ execa: vi.fn() }))
+import { execa } from 'execa'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'; import { join } from 'node:path'
+import { withState, readState } from '../../src/state/store.js'
+import { doStart } from '../../src/cli/commands/start.js'
+import type { Ctx, SetRecord } from '../../src/core/types.js'
+
+const mockExeca = vi.mocked(execa)
+let home: string
+const wt = '/wt'
+const ctx: Ctx = { projectRoot: '/x', config: { project_name: 'foo', infra: {},
+  services: [{ name: 'backend', type: 'django', port_base: 10000 },
+             { name: 'frontend', type: 'vite', port_base: 10100 }] } }
+
+const seed = (run?: SetRecord['run']) => withState('foo', s => {
+  s.sets['2'] = { status: 'allocated', owner: { worktree: wt, branch: 'x' },
+    resources: { backend: { port: 10002 }, frontend: { port: 10102 } }, created_at: 't', run }
+})
+
+beforeEach(() => { home = mkdtempSync(join(tmpdir(), 'bkhome-')); process.env.BK_HOME = home
+  mockExeca.mockReset(); mockExeca.mockResolvedValue({ stdout: 'SID-backend, SID-frontend' } as never) })
+afterEach(() => { rmSync(home, { recursive: true, force: true }); delete process.env.BK_HOME })
+
+describe('doStart', () => {
+  it('未分配 worktree → 抛 NOT_IN_WORKTREE', async () => {
+    await expect(doStart(ctx, '/nope', undefined, 'iterm')).rejects.toMatchObject({ code: 'NOT_IN_WORKTREE' })
+  })
+  it('已有 run → 抛 SERVICE_RUNNING', async () => {
+    await seed({ strategy: 'iterm', startedAt: 't', services: [{ name: 'backend', itermSessionId: 'X' }] })
+    await expect(doStart(ctx, wt, undefined, 'iterm')).rejects.toMatchObject({ code: 'SERVICE_RUNNING' })
+  })
+  it('iterm 启动成功 → 写入 run（含 session id）', async () => {
+    await seed()
+    await doStart(ctx, wt, undefined, 'iterm')
+    const s = await readState('foo')
+    expect(s.sets['2'].run).toMatchObject({ strategy: 'iterm',
+      services: [{ name: 'backend', itermSessionId: 'SID-backend' }, { name: 'frontend', itermSessionId: 'SID-frontend' }] })
+    expect(typeof s.sets['2'].run!.startedAt).toBe('string')
+  })
+  it('print 策略 → 不写 run', async () => {
+    await seed()
+    await doStart(ctx, wt, undefined, 'print')
+    const s = await readState('foo')
+    expect(s.sets['2'].run).toBeUndefined()
+  })
+})
