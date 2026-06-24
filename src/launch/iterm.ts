@@ -20,12 +20,16 @@ export function buildItermScript(specs: LaunchSpec[], plan: GridPlan): string[] 
     const sid = plan.order[k] // 第 k 个 service 落在哪个 session
     lines.push(`tell s${sid}`, `write text "cd ${esc(s.cwd)} && ${esc(s.command)}"`, 'end tell')
   })
+  const ids = specs.map((_, k) => `unique id of s${plan.order[k]}`)
+  lines.push(`return {${ids.join(', ')}}`)
   lines.push('end tell')
   return lines
 }
 
-export async function runIterm(specs: LaunchSpec[]): Promise<void> {
-  if (!specs.length) return // 对齐 tmux：无 service 不开窗
+export async function runIterm(specs: LaunchSpec[]): Promise<string[]> {
+  if (!specs.length) return [] // 对齐 tmux：无 service 不开窗
   const lines = buildItermScript(specs, planGrid(specs.length))
-  await execa('osascript', lines.flatMap(l => ['-e', l]))
+  const { stdout } = await execa('osascript', lines.flatMap(l => ['-e', l]))
+  // AppleScript 列表以 ", " 分隔；iTerm unique id 不含逗号
+  return stdout.split(', ').map(s => s.trim()).filter(Boolean)
 }

@@ -62,4 +62,15 @@ describe('buildItermScript', () => {
     // 源串里的单个反斜杠应渲染成两个
     expect(text).toContain('write text "cd /w/a\\\\b && run"')
   })
+
+  it('末尾按 order 返回各 session 的 unique id（在 end tell 之前）', () => {
+    const lines = buildItermScript(mk(3), planGrid(3)) // order = [0,2,1]
+    const ret = lines[lines.length - 2]
+    expect(ret).toBe('return {unique id of s0, unique id of s2, unique id of s1}')
+    expect(lines[lines.length - 1]).toBe('end tell')
+  })
+  it('n=1：返回单个 unique id', () => {
+    const lines = buildItermScript(mk(1), planGrid(1))
+    expect(lines[lines.length - 2]).toBe('return {unique id of s0}')
+  })
 })

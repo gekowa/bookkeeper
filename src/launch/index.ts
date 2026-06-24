@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import type { Ctx, SetRecord } from '../core/types.js'
+import type { Ctx, SetRecord, RunHandle, RunService } from '../core/types.js'
 import { adapterFor } from '../frameworks/registry.js'
 import { BkError, Codes } from '../core/errors.js'
 import { renderPrint } from './print.js'
@@ -8,6 +8,7 @@ import { runIterm } from './iterm.js'
 
 export interface LaunchSpec { name: string; command: string; cwd: string }
 export type Strategy = 'tmux' | 'iterm' | 'print'
+export type LaunchResult = RunHandle | null
 
 export function buildLaunchSpecs(ctx: Ctx, set: SetRecord, worktreeDir: string, only?: string): LaunchSpec[] {
   return ctx.config.services
@@ -40,8 +41,14 @@ export function selectStrategy(
   return 'print'
 }
 
-export async function runLaunch(specs: LaunchSpec[], strategy: Strategy): Promise<void> {
-  if (strategy === 'print') { console.log(renderPrint(specs)); return }
-  if (strategy === 'tmux') { await runTmux(specs); return }
-  await runIterm(specs)
+export async function runLaunch(specs: LaunchSpec[], strategy: Strategy): Promise<LaunchResult> {
+  if (strategy === 'print') { console.log(renderPrint(specs)); return null }
+  if (strategy === 'tmux') {
+    const { session, paneIds } = await runTmux(specs)
+    const services: RunService[] = specs.map((s, i) => ({ name: s.name, tmuxPaneId: paneIds[i] }))
+    return { strategy: 'tmux', tmuxSession: session, services }
+  }
+  const ids = await runIterm(specs)
+  const services: RunService[] = specs.map((s, i) => ({ name: s.name, itermSessionId: ids[i] }))
+  return { strategy: 'iterm', services }
 }
