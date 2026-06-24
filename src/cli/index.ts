@@ -8,6 +8,7 @@ import { registerWorktree } from './commands/worktree.js'
 import { registerList } from './commands/list.js'
 import { registerStart } from './commands/start.js'
 import { registerStop } from './commands/stop.js'
+import { registerRestart } from './commands/restart.js'
 import { registerDestroy } from './commands/destroy.js'
 import { registerSetup } from './commands/setup.js'
 
@@ -23,6 +24,7 @@ registerWorktree(program)
 registerList(program)
 registerStart(program)
 registerStop(program)
+registerRestart(program)
 registerDestroy(program)
 registerSetup(program)
 program.parseAsync(process.argv).catch(() => { process.exitCode = 1 })
