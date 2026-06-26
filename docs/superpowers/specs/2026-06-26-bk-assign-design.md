@@ -22,6 +22,27 @@
 
 > 命令形态权衡（已决策）：曾考虑做成 `allocate [N]` 可选参数，但 `allocate` 的天性是"创建即用"，而 `assign` 的语义是"严格只复用、绝不创建"——二者相反。塞进同一命令会让 `allocate N` 的行为随参数有无在"创建 vs 报错"间分裂。故保留 `assign` 为独立命令，用命令名承载不同契约。
 
+## 在整体模型中的位置：绑定 + 就绪
+
+`assign` 不是孤立特性。"给一个 worktree 配齐资源"本就分两个正交步骤，`assign` 落在第一步：
+
+```
+步骤 1【绑定】 决定这个 worktree 占第几套 N + 写 .env
+        ├─ bk allocate      自动选号（池里没有就新建）
+        └─ bk assign <N>    点名选号（只复用，不新建）   ← 本特性
+                                ↓ 绑定后自动跟一步
+步骤 2【就绪】 跑 service 的 post_allocate 钩子让工作目录 ready（migrate / seed / npm install）
+        ├─（allocate / assign 绑定后自动跑一遍）
+        └─ bk setup         单独重跑（绑定不变，只补跑步骤 2）
+
+bk deallocate  = 解绑（步骤 1 的逆操作，资源退回池子）
+```
+
+要点：
+- **`allocate` 与 `assign` 是"绑定"的两种入口**（自动选号 / 点名选号），共享同一套"绑定后写 `.env` → 跑钩子"的下游逻辑。
+- **`post_allocate` 钩子命名的是"绑定完成"这个生命周期时刻，而非某条命令**——它已被 `allocate`、`worktree create`、`bk setup` 三处触发，`assign` 是第四个入口。沿用此名不引入新概念（本次**不改钩子名**，命令形态权衡见上）。
+- "绑定（bind）"是描述步骤 1 的**概念词**，不做成独立命令（做了就与 allocate / assign 重复）。
+
 ## 行为矩阵
 
 设当前目录为 `cwd`，参数为编号 `N`：
