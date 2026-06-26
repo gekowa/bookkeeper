@@ -54,7 +54,10 @@ export async function doAssign(
       repointedFrom = Number(existing)
     }
 
-    // 复活既有 free SetRecord：保留 resources/created_at，仅翻 status + 写 owner
+    // 复活既有 free SetRecord：保留 resources/created_at，仅翻 status + 写 owner。
+    // 刻意不像 allocate 那样用 buildSetRecord 重建——assign 的语义是“认领既有”，
+    // 故保留原始 resources/created_at（恢复用例需要）。.env 由下方 planNames(n) 现算，
+    // 与既有 resources 一致（同一 N 推导同名）；勿改成 buildSetRecord。
     target.status = 'allocated'
     target.owner = { worktree: worktreeDir, branch: '(manual)' }
     const names = planNames(providers, ctx, n)
