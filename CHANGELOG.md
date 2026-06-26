@@ -2,6 +2,12 @@
 
 本文件记录 BookKeeper（bk）的版本变更。
 
+## [0.0.10] - 2026-06-26
+
+### Added
+
+- `bk assign <N>`：把当前 worktree **点名绑定**到池子里已存在的第 N 套资源（`allocate` 的「自己点号」版本）。只复用、绝不创建——第 N 套不存在即报 `SET_NOT_FOUND`，避免「假恢复成空库」。被别的 worktree 占用报 `SET_IN_USE`（`--force` 也不抢）；当前目录已绑别的号报 `ALREADY_ALLOCATED`，加 `--force` 则先退回再换绑。绑定后照常跑 `post_allocate` 钩子（让新 worktree 就绪），可用 `--no-hook` 跳过；不探活、不 provision（资源已存在）。
+
 ## [0.0.9] - 2026-06-24
 
 ### Added

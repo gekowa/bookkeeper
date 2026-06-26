@@ -269,11 +269,17 @@ Next free number: 4
 ```bash
 bk allocate     # 当前 worktree 领一套资源（无参数）
 bk deallocate   # 当前 worktree 解绑，资源退回池子（不销毁）
+bk assign <N>   # 当前 worktree 点名绑定到已存在的第 N 套（只复用、不创建）
 ```
 
 `bk allocate` 半途失败会**尽力回滚**到分配前的干净状态，不留孤儿资源。
 
 `bk allocate` 时可加 `--no-hook` 标志，跳过 post_allocate 钩子的执行。
+
+`bk assign <N>` 是 `allocate` 的「点名认领」版本：`allocate` 自动挑空闲号、没有就新建；`assign` 则**精确复用**池子里已存在的第 N 套（如恢复一个删过又重建的 worktree，拿回原来的 `foo_3`、数据还在）。第 N 套不存在时**报错而非新建**，避免「假恢复成空库」。
+
+- `--force`：当前目录已绑别的号时，先把它退回池子再改绑 N（仅作用于当前目录自身的绑定；不会抢占别的 worktree 占用的号）。
+- `--no-hook`：绑定后不跑 `post_allocate` 钩子。
 
 ### 重跑 setup 钩子
 
