@@ -41,20 +41,27 @@
 3. **N 被别的 worktree 占用** → **无条件** `SET_IN_USE`，`--force` 也拒绝。理由：抢占会让那个 worktree 的 `.env` 与真实归属脱节、引发看不见的串库事故；动别人 worktree 的副作用超出 `assign --force`（仅针对"动我自己当前目录的绑定"）的范畴。
 4. **幂等命中（已绑 N）** → 与 `allocate` 同目录二次执行一致：打印现有资源，不重写 `.env`。
 
-## 不探活、不跑钩子
+## 不探活、不 provision；但照常跑钩子
 
-- **不探活**：`assign` 只走"复用已存在 free set"路径，与 `allocate` 的 reuse 分支一致——信任 state 快照、不再对端口/库做真实世界探活（`allocator.resolveSet` 的 `reuse` 早返回即此语义）。
-- **不跑 `post_allocate` 钩子**：钩子的契约是"仅在实际 provision 出新资源时跑"（见 post-allocate-hook 设计）。`assign` 从不 provision，故**永远不触发钩子**，也因此**不需要** `--no-hook` flag。被恢复的资源数据还在，本就不该重跑 migration/seed。
+区分两类动作：**碰真实基础设施**的（探活、provision）`assign` 不做；**让当前工作目录 ready**的（钩子）照常做。
+
+- **不探活、不 provision**：第 N 套的库/桶早已存在（数据还在），`assign` 只走"复用已存在 free set"路径，与 `allocate` 的 reuse 分支一致——信任 state 快照、不再探活，更不重建资源。
+- **照常跑 `post_allocate` 钩子**：钩子的真实触发口径是 **`reused === false`**（本次实际写了 `.env`、把资源绑到当前目录），**与是否 provision 无关**——现有 `allocate` 复用池中空闲号（未 provision）时同样会跑钩子（`doAllocate` 的 pool-reuse 分支返回 `reused: false`）。原因：钩子（`npm install` / `migrate` / `seed`）面向的是**当前工作目录**，而 `assign` 的主场景恰恰是"刚重建、尚未 ready 的新 worktree"——`node_modules` 还没装、依赖还没拉。资源可复用 ≠ 工作目录就绪，所以钩子必须跑。
+  - **幂等命中（已绑 N）不跑**：与 `allocate` 一致——当前目录早已绑 N、环境早就绪过，不重复 migrate/seed/install。
+  - **提供 `--no-hook`**：与 `allocate` 对齐，需要"绑了但暂不初始化"时用。
+  - 关于 `migrate`/`seed` 对已有数据的影响：这与现有 `allocate` 复用空闲号时的情形完全相同（项目的钩子本就需容忍重跑），`assign` 不引入新风险。
 
 ## CLI 形态
 
 ```
-bk assign <N>            # 把当前 worktree 绑定到第 N 套（必须已存在且空闲）
-bk assign <N> --force    # 若当前目录已绑别的号，先解绑再绑 N
+bk assign <N>             # 把当前 worktree 绑定到第 N 套（必须已存在且空闲）
+bk assign <N> --force     # 若当前目录已绑别的号，先解绑再绑 N
+bk assign <N> --no-hook   # 绑定但不跑 post_allocate 钩子
 ```
 
 - 位置参数 `<N>`：必填，正整数（≥1）。非正整数或非数字 → `CONFIG_INVALID`（或就地参数校验报错）。
 - `--force`：仅放宽"当前目录已绑别的 M"这一条；对"N 被别的 worktree 占用""N 不存在"无效。
+- `--no-hook`：跳过 `post_allocate` 钩子，与 `allocate` 对齐。
 - 输出风格沿用 `src/cli/output.ts`（`success` / `info` / `plain` + `renderSet`）：
   - 绑定成功：`✓ 已将当前 worktree 绑定到 Set N，并写入 .env`
   - 换绑成功：`✓ Set M 已退回池子，当前 worktree 改绑 Set N，并重写 .env`
@@ -69,31 +76,38 @@ bk assign <N> --force    # 若当前目录已绑别的号，先解绑再绑 N
 - `findSetByWorktree(state, cwd)`：判断当前目录是否已绑某套（`src/core/deallocator.js`）。
 - `deallocateInState(state, n)` + `removeServiceEnvs(ctx, cwd)`：`--force` 换绑时退回旧的 M、清其 `.env`。
 - `planNames(providers, ctx, n)` + `writeServiceEnvs(ctx, cwd, names)`：为 N 重算资源名并写 `.env`（复用 `allocate.ts` 已导出的 `writeServiceEnvs`/`buildDirEnvs`）。
+- `runPostAllocate(ctx, cwd, buildDirEnvs(ctx, names), N)`：实际绑定后跑钩子（复用 `src/hooks/postAllocate.js`），在持锁的 `withState` 之外、`.env` 写好之后执行——与 `doAllocate` 的时序完全一致。
 - 复用 `activeProviders(ctx)` 得到 provider 列表用于 `planNames`。
 
-核心控制流（持锁的 `withState` 内）：
+核心控制流——绑定决策在持锁的 `withState` 内，钩子在锁外（仿照 `doAllocate`）：
 
 ```
+// —— withState 内 ——
 existing = findSetByWorktree(state, cwd)
 target   = state.sets[String(N)]
 
 if !target:                      → throw SET_NOT_FOUND
 if target.status == 'allocated':
-    if target.owner.worktree == cwd:   → 幂等返回（不写 .env）
+    if target.owner.worktree == cwd:   → return { reused: true }   // 幂等：不写 .env、不跑钩子
     else:                              → throw SET_IN_USE
 // 此处 target 必为 free
 if existing && existing != String(N):
     if !force:                   → throw ALREADY_ALLOCATED
     else: deallocateInState(state, existing); removeServiceEnvs(ctx, cwd)
-// 绑定 N
+// 绑定 N（复活既有 free SetRecord，保留 resources/created_at，仅翻 status + 写 owner）
 target.status = 'allocated'
 target.owner  = { worktree: cwd, branch: '(manual)' }
 names = planNames(providers, ctx, N)
 writeServiceEnvs(ctx, cwd, names)
 ensureGitignore(projectRoot, ['.env'])
+return { reused: false, names }
+
+// —— withState 外 ——
+if !reused && !opts.noHook:
+    runPostAllocate(ctx, cwd, buildDirEnvs(ctx, names), N)
 ```
 
-> 注：复用 free set 时直接复活既有 `SetRecord`（保留其 `resources`/`created_at`），无需 `buildSetRecord` 重建；仅翻转 `status` 并写 `owner`。`names` 由 `planNames` 按 N 重算，仅用于写 `.env`，与 state 中 `resources` 一致（同一 N 推导同名）。
+> 注：复用 free set 时直接复活既有 `SetRecord`（保留其 `resources`/`created_at`），无需 `buildSetRecord` 重建；仅翻转 `status` 并写 `owner`。`names` 由 `planNames` 按 N 重算，仅用于写 `.env` 与喂钩子，与 state 中 `resources` 一致（同一 N 推导同名）。钩子触发口径 `!reused` 与 `doAllocate` 一字不差。
 
 ## 新增错误码
 
@@ -117,7 +131,10 @@ ensureGitignore(projectRoot, ['.env'])
 5. **当前目录已绑 M（M≠N），N 为 free**：
    - 默认 → 抛 `ALREADY_ALLOCATED`，M 仍 allocated、N 仍 free。
    - `--force` → M 退回池子（status free、owner null、M 的 `.env` 块清除）、N 绑到 cwd、`.env` 重写。
-6. **不跑钩子**：assign 路径不调用 `runPostAllocate`（可通过断言钩子未被调用，或依"从不 provision"逻辑覆盖）。
+6. **钩子时序**：
+   - 绑定成功（free → cwd）→ `runPostAllocate` 被调用一次（断言被调、且在 `.env` 写好之后）。
+   - 幂等命中（已绑 N）→ 钩子**不被**调用。
+   - `--no-hook` → 即便实际绑定，钩子也不被调用。
 
 ## 文档
 
@@ -129,4 +146,4 @@ ensureGitignore(projectRoot, ['.env'])
 - 不支持 `assign` 创建新号（那是 `allocate`）。
 - 不支持抢占别的 worktree 占用的号（无 `--steal`）。
 - 不支持一次 `assign` 多个号 / 范围。
-- 不探活、不加 `--no-hook`（钩子永不触发）。
+- 不探活、不 provision（资源已存在）。
