@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { Command } from 'commander'
 import { registerInit } from './commands/init.js'
 import { registerAllocate } from './commands/allocate.js'
+import { registerAssign } from './commands/assign.js'
 import { registerWorktree } from './commands/worktree.js'
 import { registerList } from './commands/list.js'
 import { registerStart } from './commands/start.js'
@@ -20,6 +21,7 @@ const program = new Command()
 program.name('bk').description('BookKeeper — 并行 worktree 的本地资源记账员').version(pkg.version)
 registerInit(program)
 registerAllocate(program)
+registerAssign(program)
 registerWorktree(program)
 registerList(program)
 registerStart(program)
