@@ -260,6 +260,8 @@ Unallocated (in pool):
 Next free number: 4
 ```
 
+`bk list` 的展示**随当前 `bk_config.yml` 过滤**：只显示配置里仍声明的 service 与 infra。若你删掉了 `infra` 里的 postgres/redis/minio 或某个 `services` 条目，即使该资源此前已分配，也不再列出；恢复配置即恢复显示。这是纯显示层过滤，不改写 state、不动 `.env`。
+
 ### 手动分配 / 回收（边缘场景）
 
 日常用 `worktree create`/`delete` 即可，下面两条用于换资源、迟分配等微调：
