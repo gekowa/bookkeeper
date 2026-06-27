@@ -28,9 +28,24 @@ describe('doStart', () => {
   it('未分配 worktree → 抛 NOT_IN_WORKTREE', async () => {
     await expect(doStart(ctx, '/nope', undefined, 'iterm')).rejects.toMatchObject({ code: 'NOT_IN_WORKTREE' })
   })
-  it('已有 run → 抛 SERVICE_RUNNING', async () => {
+  it('陈旧 run（探测到句柄已死）→ 清掉孤儿记录并正常启动', async () => {
+    // 默认 mock 探测返回 SID-backend/SID-frontend，旧 session 'X' 不在其中 → 判定已死
     await seed({ strategy: 'iterm', startedAt: 't', services: [{ name: 'backend', itermSessionId: 'X' }] })
-    await expect(doStart(ctx, wt, undefined, 'iterm')).rejects.toMatchObject({ code: 'SERVICE_RUNNING' })
+    await doStart(ctx, wt, undefined, 'iterm')
+    const s = await readState('foo')
+    expect(s.sets['2'].run).toMatchObject({ strategy: 'iterm',
+      services: [{ name: 'backend', itermSessionId: 'SID-backend' }, { name: 'frontend', itermSessionId: 'SID-frontend' }] })
+  })
+
+  it('真存活 run → 幂等：不启动、不抛错、保留 run', async () => {
+    mockExeca.mockResolvedValue({ stdout: 'A, B' } as never) // 探测到 A/B 均存活
+    await seed({ strategy: 'iterm', startedAt: 't',
+      services: [{ name: 'backend', itermSessionId: 'A' }, { name: 'frontend', itermSessionId: 'B' }] })
+    await doStart(ctx, wt, undefined, 'iterm')
+    expect(mockExeca).toHaveBeenCalledTimes(1) // 只探测、不再 osascript 开窗
+    const s = await readState('foo')
+    expect(s.sets['2'].run!.services).toEqual(
+      [{ name: 'backend', itermSessionId: 'A' }, { name: 'frontend', itermSessionId: 'B' }])
   })
   it('iterm 启动成功 → 写入 run（含 session id）', async () => {
     await seed()
