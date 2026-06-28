@@ -7,7 +7,7 @@ import { runTmux } from './tmux.js'
 import { runIterm } from './iterm.js'
 
 export interface LaunchSpec { name: string; command: string; cwd: string; port?: number }
-export type Strategy = 'tmux' | 'iterm' | 'print' | 'wt' | 'win'
+export type Strategy = 'tmux' | 'iterm' | 'wt' | 'win' | 'print'
 export type LaunchResult = RunHandle | null
 
 export function buildLaunchSpecs(ctx: Ctx, set: SetRecord, worktreeDir: string, only?: string): LaunchSpec[] {
@@ -32,12 +32,14 @@ export function buildLaunchSpecs(ctx: Ctx, set: SetRecord, worktreeDir: string, 
 }
 
 export function selectStrategy(
-  env: NodeJS.ProcessEnv & { __platform?: string }, force?: Strategy,
+  env: NodeJS.ProcessEnv & { __platform?: string },
+  opts: { force?: Strategy; hasWt?: boolean } = {},
 ): Strategy {
-  if (force) return force
+  if (opts.force) return opts.force
   if (env.TMUX) return 'tmux'
   const platform = env.__platform ?? process.platform
   if (platform === 'darwin' && env.TERM_PROGRAM === 'iTerm.app') return 'iterm'
+  if (platform === 'win32') return opts.hasWt ? 'wt' : 'win'
   return 'print'
 }
 

@@ -19,7 +19,7 @@ export async function doStart(
     throw new BkError(Codes.SERVICE_RUNNING,
       '当前 worktree 已有服务在运行', { remediation: '改用 `bk restart`' })
   const specs = buildLaunchSpecs(ctx, state.sets[n], worktreeDir, service)
-  const launched = await runLaunch(specs, selectStrategy(env, force))
+  const launched = await runLaunch(specs, selectStrategy(env, { force }))
   if (launched)
     await withState(project, s => {
       s.sets[n].run = { ...launched, startedAt: new Date().toISOString() }
