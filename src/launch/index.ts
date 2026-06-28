@@ -6,8 +6,8 @@ import { renderPrint } from './print.js'
 import { runTmux } from './tmux.js'
 import { runIterm } from './iterm.js'
 
-export interface LaunchSpec { name: string; command: string; cwd: string }
-export type Strategy = 'tmux' | 'iterm' | 'print'
+export interface LaunchSpec { name: string; command: string; cwd: string; port?: number }
+export type Strategy = 'tmux' | 'iterm' | 'print' | 'wt' | 'win'
 export type LaunchResult = RunHandle | null
 
 export function buildLaunchSpecs(ctx: Ctx, set: SetRecord, worktreeDir: string, only?: string): LaunchSpec[] {
@@ -27,7 +27,7 @@ export function buildLaunchSpecs(ctx: Ctx, set: SetRecord, worktreeDir: string, 
       } else {
         command = adapterFor(s.type).defaultStartCommand(s, port)
       }
-      return { name: s.name, command, cwd: join(worktreeDir, s.dir ?? '.') }
+      return { name: s.name, command, cwd: join(worktreeDir, s.dir ?? '.'), port }
     })
 }
 
