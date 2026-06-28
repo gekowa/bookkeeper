@@ -36,4 +36,8 @@ describe('runTmux', () => {
     expect(r).toEqual({ session: '', paneIds: [] })
     expect(mockExeca).not.toHaveBeenCalled()
   })
+  it('Windows 反斜杠 cwd → session 名取末段 basename', async () => {
+    const r = await runTmux([spec('backend', 'C:\\wt\\backend')])
+    expect(r.session).toBe('bk-backend')
+  })
 })
