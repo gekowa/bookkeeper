@@ -6,7 +6,7 @@ import { BkError, Codes } from '../core/errors.js'
 
 /**
  * 按 service 声明顺序串行跑 post_allocate 钩子。
- * - 每条在该 service 的 dir 下用 sh -c 执行
+ * - 每条在该 service 的 dir 下用平台 shell 执行（Unix: /bin/sh，Windows: cmd.exe）
  * - 进程环境 = process.env（execa 默认 extendEnv）叠加该 dir 的 BK_* 与 BK_N
  * - fail-fast：某条退出码非 0 立即抛 HOOK_FAILED，不跑后续
  */
@@ -22,7 +22,8 @@ export async function runPostAllocate(
     const dir = svc.dir ?? '.'
     const cwd = join(worktreeDir, dir)
     const env = { ...(dirEnvs.get(dir) ?? {}), BK_N: String(n) }
-    const result = await execa('sh', ['-c', cmd], { cwd, env, stdio: 'inherit', reject: false })
+    // shell:true → Unix 用 /bin/sh、Windows 用 cmd.exe；两者都支持 && 链
+    const result = await execa(cmd, { cwd, env, stdio: 'inherit', reject: false, shell: true })
     if (result.exitCode !== 0) {
       throw new BkError(
         Codes.HOOK_FAILED,
