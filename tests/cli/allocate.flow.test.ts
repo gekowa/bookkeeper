@@ -93,7 +93,7 @@ describe('doAllocate', () => {
     mkdirSync(join(wt, 'backend'))
     const c: Ctx = { projectRoot: wt, config: { project_name: 'foo', infra: {},
       services: [{ name: 'backend', type: 'django', port_base: 10000, dir: 'backend',
-        post_allocate: 'echo "$BK_N" > hook.txt' }] } }
+        post_allocate: `node -e "require('fs').writeFileSync('hook.txt', process.env.BK_N)"` }] } }
     await doAllocate(c, wt, 'feature/x', provs())
     expect(readFileSync(join(wt, 'backend', 'hook.txt'), 'utf8').trim()).toBe('1')
   })

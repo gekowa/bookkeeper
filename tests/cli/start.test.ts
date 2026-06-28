@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { join } from 'node:path'
 import { buildLaunchSpecs } from '../../src/launch/index.js'
 import type { Ctx, SetRecord } from '../../src/core/types.js'
 
@@ -16,7 +17,7 @@ describe('buildLaunchSpecs', () => {
     const specs = buildLaunchSpecs(ctx, set, '/wt')
     expect(specs[0].command).toBe('uv run python manage.py runserver 0.0.0.0:10002')
     expect(specs[1].command).toBe('npm run dev -- --port 10102 --strictPort')
-    expect(specs[0].cwd).toBe('/wt')
+    expect(specs[0].cwd).toBe(join('/wt'))
   })
   it('only 过滤单个 service', () => {
     expect(buildLaunchSpecs(ctx, set, '/wt', 'frontend')).toHaveLength(1)
@@ -26,7 +27,7 @@ describe('buildLaunchSpecs', () => {
       services: [{ name: 'backend', type: 'django', port_base: 10000, dir: 'backend' }] } }
     const setDir: SetRecord = { status: 'allocated', owner: { worktree: '/wt', branch: 'x' },
       resources: { backend: { port: 10002 } }, created_at: 'x' }
-    expect(buildLaunchSpecs(ctxDir, setDir, '/wt')[0].cwd).toBe('/wt/backend')
+    expect(buildLaunchSpecs(ctxDir, setDir, '/wt')[0].cwd).toBe(join('/wt', 'backend'))
   })
   it('无端口 worker：用 adapter 默认命令、cwd 取 dir', () => {
     const ctxW: Ctx = { projectRoot: '/x', config: { project_name: 'foo', infra: {},
@@ -35,7 +36,7 @@ describe('buildLaunchSpecs', () => {
       resources: {}, created_at: 'x' }
     const spec = buildLaunchSpecs(ctxW, setW, '/wt')[0]
     expect(spec.command).toBe('uv run arq app.worker.WorkerSettings')
-    expect(spec.cwd).toBe('/wt/backend')
+    expect(spec.cwd).toBe(join('/wt', 'backend'))
   })
   it('command 含 {port} 但无端口 → 抛 CONFIG_INVALID', () => {
     const ctxBad: Ctx = { projectRoot: '/x', config: { project_name: 'foo', infra: {},
@@ -51,6 +52,6 @@ describe('buildLaunchSpecs', () => {
       resources: {}, created_at: 'x' }
     const spec = buildLaunchSpecs(ctxC, setC, '/wt')[0]
     expect(spec.command).toBe('uv run arq app.worker.WorkerSettings')
-    expect(spec.cwd).toBe('/wt/backend')
+    expect(spec.cwd).toBe(join('/wt', 'backend'))
   })
 })
