@@ -4,6 +4,9 @@ import { adapterFor } from '../frameworks/registry.js'
 import { BkError, Codes } from '../core/errors.js'
 import { renderPrint } from './print.js'
 import { runTmux } from './tmux.js'
+import { runWt } from './wt.js'
+import { runWin } from './win.js'
+import { resolvePsHost } from './platform.js'
 import { runIterm } from './iterm.js'
 
 export interface LaunchSpec { name: string; command: string; cwd: string; port?: number }
@@ -49,6 +52,12 @@ export async function runLaunch(specs: LaunchSpec[], strategy: Strategy): Promis
     const { session, paneIds } = await runTmux(specs)
     const services: RunService[] = specs.map((s, i) => ({ name: s.name, tmuxPaneId: paneIds[i] }))
     return { strategy: 'tmux', tmuxSession: session, services }
+  }
+  if (strategy === 'wt' || strategy === 'win') {
+    const psHost = await resolvePsHost()
+    const { pids } = strategy === 'wt' ? await runWt(specs, psHost) : await runWin(specs, psHost)
+    const services: RunService[] = specs.map((s, i) => ({ name: s.name, pid: pids[i], port: s.port }))
+    return { strategy, services }
   }
   const ids = await runIterm(specs)
   const services: RunService[] = specs.map((s, i) => ({ name: s.name, itermSessionId: ids[i] }))
