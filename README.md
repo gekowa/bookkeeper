@@ -230,6 +230,26 @@ bk restart [service]   # 重启 = 停止 + 重读 bk_config.yml 后重新启动
 
 > **tmux 注意**：单个服务的 `restart` 若其余服务仍在同一 tmux session 中运行，可能因重建同名 session 冲突而报错——改用整组 `bk restart`（不带 service），或 `bk stop` 后再 `bk start`。
 
+## Windows 支持
+
+`bk start` 在 Windows 上自动选择启动方式：
+
+- **装了 Windows Terminal（`wt.exe`）** → 用 `wt`：在一个窗口里平铺多个 pane，每个 pane 跑一个服务（最接近 tmux/iTerm 的体验）。
+- **没装** → 用 `win`：每个服务起一个独立的 PowerShell 窗口。
+
+服务宿主优先用 PowerShell 7（`pwsh`），没有则回退系统自带的 `powershell` 5.1。
+
+`bk stop` / `bk restart`：
+
+- 优先按 `bk start` 记录的 PID `taskkill /T /F` 杀整棵进程树。
+- PID 失效时，对**有端口**的服务按端口经 `Get-NetTCPConnection` 反查属主进程兜底。
+- 无端口的 worker（arq/celery）依赖 `wt` pane 自报的 pidfile。
+
+### 已知限制
+
+- 服务的 **`command` 覆盖**里若用 `&&`，在仅有 PowerShell 5.1 的机器上不可用——请装 PowerShell 7（`pwsh`），或拆成单条命令。内置默认启动命令都是单条命令，不受影响。
+- `wt` 下被 `stop` 的 pane 会显示「进程已退出」但 pane 不会自动关闭，需手动关（与 tmux 死 pane 同理）。
+
 ### 观测
 
 ```bash

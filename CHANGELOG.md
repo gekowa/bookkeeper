@@ -2,6 +2,17 @@
 
 本文件记录 BookKeeper（bk）的版本变更。
 
+## [0.0.10] - 2026-06-28
+
+### Added
+
+- **Windows 支持**：`bk start` 在 Windows 上按是否安装 Windows Terminal 自动选策略——有 `wt.exe` 用 `wt`（单窗口平铺多 pane），否则用 `win`（每服务一个独立 PowerShell 窗口）。`stop`/`restart` 据此停服：优先按记录的 PID `taskkill /T /F` 杀整棵进程树，PID 缺失时按服务端口经 `Get-NetTCPConnection` 查属主兜底（无端口的 worker 依赖 wt pane 自报的 pidfile）。服务宿主优先 `pwsh`（PowerShell 7）、否则内置 `powershell` 5.1。
+
+### Fixed
+
+- `post_allocate` 钩子改用平台默认 shell 执行（Unix `/bin/sh`、Windows `cmd.exe`），此前硬编码 `sh -c` 在 Windows 上不可用，导致带 `post_allocate` 的 `bk allocate` 失败。
+- `tmux` 会话名改用 `path.basename` 推导，修正 Windows 反斜杠 worktree 路径下会话名被整条路径污染的问题。
+
 ## [0.0.9] - 2026-06-24
 
 ### Added
