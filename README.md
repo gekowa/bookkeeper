@@ -248,6 +248,7 @@ bk restart [service]   # 重启 = 停止 + 重读 bk_config.yml 后重新启动
 ### 已知限制
 
 - 服务的 **`command` 覆盖**里若用 `&&`，在仅有 PowerShell 5.1 的机器上不可用——请装 PowerShell 7（`pwsh`），或拆成单条命令。内置默认启动命令都是单条命令，不受影响。
+- `wt` 策略下，服务 `command` 覆盖中含有 `;`（分号）会被 `wt.exe` 误作子命令分隔符，导致拆分成多个 pane；避免在 Windows 的 `command` 覆盖里用 `;`（内置默认命令不含 `;`，不受影响）。
 - `wt` 下被 `stop` 的 pane 会显示「进程已退出」但 pane 不会自动关闭，需手动关（与 tmux 死 pane 同理）。
 
 ### 观测

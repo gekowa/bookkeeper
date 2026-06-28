@@ -16,22 +16,29 @@ describe('buildWinSpawn', () => {
   it('file = psHost', () => expect(r.file).toBe('powershell'))
   it('args 用 -NoExit -Command 跑原命令', () =>
     expect(r.args).toEqual(['-NoExit', '-Command', 'uv run x']))
-  it('opts：cwd / detached / stdio ignore', () => {
+  it('opts：cwd / detached / stdio ignore / windowsHide false', () => {
     expect(r.opts.cwd).toBe('C:\\wt\\backend')
     expect(r.opts.detached).toBe(true)
     expect(r.opts.stdio).toBe('ignore')
+    expect(r.opts.windowsHide).toBe(false)
   })
 })
 
 describe('runWin', () => {
+  let unrefSpy: ReturnType<typeof vi.fn>
   beforeEach(() => {
     mockSpawn.mockReset()
+    unrefSpy = vi.fn()
     let pid = 1000
-    mockSpawn.mockImplementation((() => ({ pid: ++pid, unref() {} })) as never)
+    mockSpawn.mockImplementation((() => ({ pid: ++pid, unref: unrefSpy })) as never)
   })
   it('每个 service spawn 一次，按序返回 pid', async () => {
     const { pids } = await runWin(specs, 'powershell')
     expect(mockSpawn).toHaveBeenCalledTimes(2)
     expect(pids).toEqual([1001, 1002])
+  })
+  it('每个 spawn 的 child 都调用了 unref()', async () => {
+    await runWin(specs, 'powershell')
+    expect(unrefSpy).toHaveBeenCalledTimes(2)
   })
 })

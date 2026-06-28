@@ -14,6 +14,7 @@ export function pidFileFor(spec: LaunchSpec): string {
 
 // pane 命令：PowerShell 先把自身 $PID 写进 pidfile，再跑原命令。
 function paneScript(command: string, pidFile: string): string {
+  // 注：$PID 为 PowerShell HOST 进程的 PID，服务作为其子进程运行，bk stop 须用 taskkill /T 才能树杀到子进程。
   return `$PID | Out-File -Encoding ascii '${pidFile}'; ${command}`
 }
 
