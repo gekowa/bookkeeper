@@ -7,7 +7,7 @@ describe('defaultStartCommand', () => {
   it('fastapi 用 app 字段', () => expect(adapterFor('fastapi').defaultStartCommand({ name: 'b', type: 'fastapi', port_base: 10000, app: 'app.main:app' }, 10002))
     .toBe('uv run uvicorn app.main:app --port 10002'))
   it('vite', () => expect(adapterFor('vite').defaultStartCommand({ name: 'f', type: 'vite', port_base: 10100 }, 10102))
-    .toBe('npm run dev -- --port 10102 --strictPort'))
+    .toBe('npx vite --port 10102 --strictPort'))
   it('fastapi 缺 app 字段 → 抛 CONFIG_INVALID', () => {
     expect(() => adapterFor('fastapi').defaultStartCommand({ name: 'b', type: 'fastapi', port_base: 10000 }, 10002))
       .toThrow(/CONFIG_INVALID|app/)

@@ -119,7 +119,7 @@ infra:
 |------|---------|------|
 | `django` | `uv run python manage.py runserver 0.0.0.0:{port}` | 需要 |
 | `fastapi` | `uv run uvicorn {app} --port {port}` | 需要 |
-| `vite` | `npm run dev -- --port {port}` | 需要 |
+| `vite` | `npx vite --port {port}` | 需要 |
 | `arq` | `uv run arq {app}.WorkerSettings` | 无 |
 | `celery` | `uv run celery -A {app} worker` | 无 |
 
