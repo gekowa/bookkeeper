@@ -2,6 +2,12 @@
 
 本文件记录 BookKeeper（bk）的版本变更。
 
+## [0.0.12] - 2026-06-30
+
+### Changed
+
+- `vite` 类型服务的默认启动命令由 `npm run dev -- --port {port} --strictPort` 改为 `npx vite --port {port} --strictPort`：直接调用 vite，去掉 `npm run dev` 这层 npm script 间接层与潜在差异；`--strictPort` 端口被占即快速失败的语义不变。未在 `bk_config.yml` 里显式覆盖 `start_command` 的 vite 服务会自动采用新命令。
+
 ## [0.0.11] - 2026-06-27
 
 ### Fixed
