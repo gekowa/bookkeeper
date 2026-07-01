@@ -50,3 +50,18 @@ export function buildSetRecord(
   if (names.bucket) resources.minio = { bucket: names.bucket }
   return { status: owner ? 'allocated' : 'free', owner, resources, created_at: new Date().toISOString() }
 }
+
+export function setToResourceNames(set: SetRecord): ResourceNames {
+  const ports: Record<string, number> = {}
+  for (const [svc, r] of Object.entries(set.resources)) {
+    if (svc === 'postgres' || svc === 'redis' || svc === 'minio') continue
+    if (r && typeof r === 'object' && 'port' in r) ports[svc] = (r as { port: number }).port
+  }
+  return {
+    ports,
+    database: set.resources.postgres?.database,
+    redisDb: set.resources.redis?.db,
+    redisPrefix: set.resources.redis?.prefix,
+    bucket: set.resources.minio?.bucket,
+  }
+}

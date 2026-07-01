@@ -1,22 +1,65 @@
 import { describe, it, expect } from 'vitest'
-import { interpolateEnvs } from '../../src/inject/interpolate.js'
-import type { ResourceNames } from '../../src/core/types.js'
+import {
+  interpolateEnvs, interpolateCommand, buildInterpValues, type InterpValues,
+} from '../../src/inject/interpolate.js'
+import type { Ctx, ResourceNames } from '../../src/core/types.js'
 
-const names: ResourceNames = { ports: { backend: 10001, frontend: 10101 } }
+const v: InterpValues = { svcName: 'frontend', ports: { backend: 10001, frontend: 10101 }, infra: {} }
 
 describe('interpolateEnvs', () => {
-  it('替换 {service.port}', () => {
-    expect(interpolateEnvs({ VITE_API_BASE: 'http://localhost:{backend.port}/api' }, names, 'frontend'))
-      .toEqual({ VITE_API_BASE: 'http://localhost:10001/api' })
+  it('{service.X.port} 与旧 {X.port} 别名都能解析', () => {
+    expect(interpolateEnvs({ A: '{service.backend.port}', B: '{backend.port}' }, v))
+      .toEqual({ A: '10001', B: '10001' })
   })
-  it('一个值里多个占位符', () => {
-    expect(interpolateEnvs({ X: '{backend.port}-{frontend.port}' }, names, 'frontend'))
-      .toEqual({ X: '10001-10101' })
+  it('{port} 取自身端口', () => {
+    expect(interpolateEnvs({ P: '{port}' }, v)).toEqual({ P: '10101' })
   })
-  it('未知服务名 → CONFIG_INVALID', () => {
-    expect(() => interpolateEnvs({ X: '{nope.port}' }, names, 'frontend')).toThrow(/CONFIG_INVALID|nope/)
+  it('多占位符 / 无占位符原样', () => {
+    expect(interpolateEnvs({ X: '{backend.port}-{frontend.port}', Y: 'plain', Z: '' }, v))
+      .toEqual({ X: '10001-10101', Y: 'plain', Z: '' })
   })
-  it('无占位符原样返回', () => {
-    expect(interpolateEnvs({ X: 'plain', Y: '' }, names, 'frontend')).toEqual({ X: 'plain', Y: '' })
+  it('未知服务端口 → CONFIG_INVALID', () => {
+    expect(() => interpolateEnvs({ X: '{nope.port}' }, v)).toThrow(/CONFIG_INVALID|nope/)
+  })
+  it('{args} 用在 envs 值里 → 报错', () => {
+    expect(() => interpolateEnvs({ X: '{args}' }, v)).toThrow(/CONFIG_INVALID|args/)
+  })
+})
+
+describe('interpolateCommand', () => {
+  it('{args} 展开为已解析 envs 的 --k=v 串', () => {
+    expect(interpolateCommand('run --port {port} {args}', v, '--BK_DB_NAME=foo_2 --BK_REDIS_DB=2'))
+      .toBe('run --port 10101 --BK_DB_NAME=foo_2 --BK_REDIS_DB=2')
+  })
+  it('{args} 为空串时原样留空', () => {
+    expect(interpolateCommand('run --port {port} {args}', v, '')).toBe('run --port 10101 ')
+  })
+})
+
+describe('buildInterpValues', () => {
+  const ctx: Ctx = { projectRoot: '/x', config: { project_name: 'p', infra: {
+    postgres: { host: 'localhost', port: 5432, username: 'postgres', password: 'pgpw' },
+    redis: { host: 'localhost', port: 6379 },
+    minio: { endpoint: 'localhost:9000', access_key: 'ak', secret_key: 'sk' },
+  } } }
+  const names: ResourceNames = { ports: { api: 10002 }, database: 'p_2', redisDb: 2, bucket: 'p-2' }
+  const svc = { name: 'api', type: 'django' } as never
+
+  it('合并静态 infra 与动态分配值，支持全量占位符（含密钥）', () => {
+    const vals = buildInterpValues(ctx, names, svc)
+    expect(interpolateCommand(
+      '{infra.postgres.database}|{infra.postgres.host}|{infra.postgres.password}|{infra.redis.db}|{infra.minio.secret_key}',
+      vals, '',
+    )).toBe('p_2|localhost|pgpw|2|sk')
+  })
+  it('引用未声明 infra → CONFIG_INVALID', () => {
+    const empty: Ctx = { projectRoot: '/x', config: { project_name: 'p', infra: {} } }
+    const vals = buildInterpValues(empty, { ports: {} }, svc)
+    expect(() => interpolateCommand('{infra.postgres.database}', vals, '')).toThrow(/CONFIG_INVALID|postgres/)
+  })
+  it('redis isolation=key_prefix 时 {infra.redis.db} 不可用', () => {
+    const vals = buildInterpValues(ctx, { ports: {}, redisPrefix: 'p_2_' }, svc)
+    expect(() => interpolateCommand('{infra.redis.db}', vals, '')).toThrow(/CONFIG_INVALID|redis/)
+    expect(interpolateCommand('{infra.redis.prefix}', vals, '')).toBe('p_2_')
   })
 })
