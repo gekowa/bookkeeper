@@ -81,6 +81,40 @@ describe('buildConfigDraft', () => {
     expect(yml).not.toContain('      VITE_API_BASE:')
   })
 
+  it('springboot 多模块容器：展开为多条服务 + -pl 命令 + 首条 install 钩子 + -s settings，过滤库', () => {
+    const root = mkdtempSync(join(tmpdir(), 'proj-'))
+    try {
+      const back = join(root, 'backend')
+      mkdirSync(back)
+      writeFileSync(join(back, 'pom.xml'),
+        '<project><packaging>pom</packaging><modules><module>pangumall-foo</module></modules></project>')
+      writeFileSync(join(back, 'maven-settings-bytz.xml'), '<settings/>')
+      // 多模块服务 foo：.server 有 plugin，-starter 无
+      mkdirSync(join(back, 'pangumall-foo'))
+      writeFileSync(join(back, 'pangumall-foo', 'pom.xml'), '<project><packaging>pom</packaging><modules><module>pangumall-foo.server</module></modules></project>')
+      mkdirSync(join(back, 'pangumall-foo', 'pangumall-foo.server'))
+      writeFileSync(join(back, 'pangumall-foo', 'pangumall-foo.server', 'pom.xml'),
+        '<project><build><plugins><plugin>spring-boot-maven-plugin</plugin></plugins></build></project>')
+      mkdirSync(join(back, 'pangumall-foo', 'pangumall-foo-starter'))
+      writeFileSync(join(back, 'pangumall-foo', 'pangumall-foo-starter', 'pom.xml'), '<project/>')
+      // 库：无 plugin → 过滤
+      mkdirSync(join(back, 'pangumall-common'))
+      writeFileSync(join(back, 'pangumall-common', 'pom.xml'), '<project/>')
+
+      const yml = buildConfigDraft(root)
+      expect(yml).toMatch(/pangumall-foo:[\s\S]*type: springboot/)
+      expect(yml).toContain('    dir: backend')
+      expect(yml).toContain('-pl pangumall-foo/pangumall-foo.server')
+      expect(yml).toContain('-s maven-settings-bytz.xml')
+      expect(yml).toContain('-DSERVER_PORT={port}')
+      expect(yml).toMatch(/pangumall-foo:[\s\S]*post_allocate:/)
+      expect(yml).toContain('mvn -s maven-settings-bytz.xml install')
+      expect(yml).not.toMatch(/pangumall-common:[\s\S]*type: springboot/)
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   it('侦测 springboot（pom.xml 含 spring-boot）→ 草稿含 type: springboot', () => {
     const sdir = mkdtempSync(join(tmpdir(), 'proj-'))
     try {
