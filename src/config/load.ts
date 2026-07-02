@@ -14,7 +14,17 @@ export function loadConfig(projectRoot: string): ProjectConfig {
       throw new BkError(Codes.CONFIG_INVALID, `service ${name} 的 port_base 必须是数字`)
     if (s.envs !== undefined && (typeof s.envs !== 'object' || Array.isArray(s.envs)))
       throw new BkError(Codes.CONFIG_INVALID, `service ${name} 的 envs 必须是键值映射`)
-    return { name, type: s.type, port_base: s.port_base, command: s.command, app: s.app, dir: s.dir, envs: s.envs, post_allocate: s.post_allocate }
+    if (s.startCommand !== undefined &&
+        (!Array.isArray(s.startCommand) || s.startCommand.some((x: unknown) => typeof x !== 'string')))
+      throw new BkError(Codes.CONFIG_INVALID, `service ${name} 的 startCommand 必须是字符串数组`)
+    if (s.startCommand !== undefined && s.command !== undefined)
+      throw new BkError(Codes.CONFIG_INVALID, `service ${name} 不能同时设置 command 与 startCommand`,
+        { remediation: '二选一：dotEnv 用 command，startupArgs 用 startCommand' })
+    if (s.injectionMode !== undefined && !['dotEnv', 'startupArgs'].includes(s.injectionMode))
+      throw new BkError(Codes.CONFIG_INVALID, `service ${name} 的 injectionMode 只能是 dotEnv 或 startupArgs`)
+    return { name, type: s.type, port_base: s.port_base, command: s.command,
+      startCommand: s.startCommand, injectionMode: s.injectionMode,
+      app: s.app, dir: s.dir, envs: s.envs, post_allocate: s.post_allocate }
   })
   return {
     project_name: raw.project_name,

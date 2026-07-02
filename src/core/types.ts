@@ -1,4 +1,4 @@
-export type ServiceType = 'django' | 'fastapi' | 'vite' | 'arq' | 'celery'
+export type ServiceType = 'django' | 'fastapi' | 'vite' | 'arq' | 'celery' | 'springboot'
 export type RedisIsolation = 'key_prefix' | 'db_number'
 
 export interface ServiceConfig {
@@ -6,6 +6,8 @@ export interface ServiceConfig {
   type: ServiceType
   port_base?: number
   command?: string
+  startCommand?: string[]
+  injectionMode?: 'dotEnv' | 'startupArgs'
   app?: string
   dir?: string
   envs?: Record<string, string>

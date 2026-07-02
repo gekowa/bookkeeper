@@ -127,3 +127,52 @@ infra: {}
     expect(loadConfig(root).services[0].post_allocate).toBeUndefined()
   })
 })
+
+describe('loadConfig springboot 字段', () => {
+  it('透传 injectionMode 与 startCommand', () => {
+    write(`project_name: foo
+services:
+  api:
+    type: springboot
+    port_base: 10200
+    dir: api
+    injectionMode: startupArgs
+    startCommand:
+      - mvn
+      - spring-boot:run
+`)
+    const c = loadConfig(root)
+    const svc = c.services.find(s => s.name === 'api')!
+    expect(svc.type).toBe('springboot')
+    expect(svc.injectionMode).toBe('startupArgs')
+    expect(svc.startCommand).toEqual(['mvn', 'spring-boot:run'])
+  })
+  it('command 与 startCommand 同时给 → CONFIG_INVALID', () => {
+    write(`project_name: foo
+services:
+  api:
+    type: springboot
+    command: mvn spring-boot:run
+    startCommand: [mvn, spring-boot:run]
+`)
+    expect(() => loadConfig(root)).toThrow(/CONFIG_INVALID|command.*startCommand|同时/)
+  })
+  it('startCommand 非字符串数组 → CONFIG_INVALID', () => {
+    write(`project_name: foo
+services:
+  api:
+    type: springboot
+    startCommand: "mvn spring-boot:run"
+`)
+    expect(() => loadConfig(root)).toThrow(/CONFIG_INVALID|startCommand/)
+  })
+  it('injectionMode 非法值 → CONFIG_INVALID', () => {
+    write(`project_name: foo
+services:
+  api:
+    type: springboot
+    injectionMode: weird
+`)
+    expect(() => loadConfig(root)).toThrow(/CONFIG_INVALID|injectionMode/)
+  })
+})
