@@ -8,6 +8,7 @@ describe('detectType', () => {
   it('manage.py → django', () => expect(detectType(fx('django-proj'))).toBe('django'))
   it('pyproject 含 fastapi → fastapi', () => expect(detectType(fx('fastapi-proj'))).toBe('fastapi'))
   it('vite.config → vite', () => expect(detectType(fx('vite-proj'))).toBe('vite'))
+  it('pom 含 spring-boot → springboot', () => expect(detectType(fx('springboot-proj'))).toBe('springboot'))
   it('无特征 → null', () => expect(detectType(fx('.'))).toBe(null))
   it('arq/celery adapter detect 恒为 false（不污染目录侦测）', async () => {
     const { arq } = await import('../../src/frameworks/arq.js')

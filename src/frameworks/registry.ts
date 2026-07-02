@@ -6,8 +6,9 @@ import { fastapi } from './fastapi.js'
 import { vite } from './vite.js'
 import { arq } from './arq.js'
 import { celery } from './celery.js'
+import { springboot } from './springboot.js'
 
-const ALL: FrameworkAdapter[] = [django, fastapi, vite, arq, celery]
+const ALL: FrameworkAdapter[] = [django, fastapi, vite, arq, celery, springboot]
 
 export function adapterFor(type: ServiceType): FrameworkAdapter {
   const a = ALL.find(x => x.type === type)
