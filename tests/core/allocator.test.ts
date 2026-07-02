@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
-import { resolveSet, provisionSet } from '../../src/core/allocator.js'
+import { resolveSet, provisionSet, namesFromSet } from '../../src/core/allocator.js'
 import { Codes } from '../../src/core/errors.js'
 import { fakeProvider } from '../helpers/fakeProvider.js'
 import type { Ctx } from '../../src/core/types.js'
 import type { StateFile } from '../../src/state/schema.js'
+import type { SetRecord } from '../../src/core/types.js'
 
 const ctx = {} as Ctx
 const emptyState: StateFile = { project_name: 'foo', config_fingerprint: '', sets: {} }
@@ -39,5 +40,23 @@ describe('provisionSet 回滚', () => {
     const b = fakeProvider({ kind: 'b', provision: async () => { throw new Error('boom') } })
     await expect(provisionSet([a, b], ctx, 1)).rejects.toThrow('boom')
     expect(destroyA).toHaveBeenCalledOnce()
+  })
+})
+
+describe('namesFromSet', () => {
+  it('从 resources 反解出 ports/database/redis/bucket', () => {
+    const set: SetRecord = { status: 'allocated', owner: { worktree: '/w', branch: 'b' },
+      resources: { backend: { port: 10002 }, frontend: { port: 10102 },
+        postgres: { database: 'foo_2' }, redis: { db: 2 }, minio: { bucket: 'foo-2' } },
+      created_at: 't' }
+    expect(namesFromSet(set)).toEqual({
+      ports: { backend: 10002, frontend: 10102 },
+      database: 'foo_2', redisPrefix: undefined, redisDb: 2, bucket: 'foo-2',
+    })
+  })
+  it('无 infra 资源时只出 ports', () => {
+    const set: SetRecord = { status: 'allocated', owner: null,
+      resources: { api: { port: 10200 } }, created_at: 't' }
+    expect(namesFromSet(set)).toEqual({ ports: { api: 10200 } })
   })
 })

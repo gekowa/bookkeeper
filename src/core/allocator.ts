@@ -50,3 +50,21 @@ export function buildSetRecord(
   if (names.bucket) resources.minio = { bucket: names.bucket }
   return { status: owner ? 'allocated' : 'free', owner, resources, created_at: new Date().toISOString() }
 }
+
+const INFRA_KEYS = new Set(['postgres', 'redis', 'minio'])
+
+export function namesFromSet(set: SetRecord): ResourceNames {
+  const ports: Record<string, number> = {}
+  for (const [k, v] of Object.entries(set.resources)) {
+    if (!INFRA_KEYS.has(k) && v && typeof v === 'object' && 'port' in v)
+      ports[k] = (v as { port: number }).port
+  }
+  const names: ResourceNames = { ports }
+  if (set.resources.postgres) names.database = set.resources.postgres.database
+  if (set.resources.redis) {
+    names.redisPrefix = set.resources.redis.prefix
+    names.redisDb = set.resources.redis.db
+  }
+  if (set.resources.minio) names.bucket = set.resources.minio.bucket
+  return names
+}
