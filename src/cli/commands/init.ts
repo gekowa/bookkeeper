@@ -17,6 +17,17 @@ function detectWorkerLibs(dir: string): ('arq' | 'celery')[] {
   return libs
 }
 
+function detectSpringOrm(dir: string): 'jpa' | 'mybatis' | null {
+  for (const f of ['pom.xml', 'build.gradle', 'build.gradle.kts']) {
+    const p = join(dir, f)
+    if (!existsSync(p)) continue
+    const t = readFileSync(p, 'utf8')
+    if (/spring-boot-starter-data-jpa/.test(t)) return 'jpa'
+    if (/mybatis-spring-boot-starter|org\.mybatis/.test(t)) return 'mybatis'
+  }
+  return null
+}
+
 function detectViteApiEnvs(dir: string): { name: string; url: string }[] {
   const files = ['.env', '.env.example', '.env.local', '.env.development']
   const out: { name: string; url: string }[] = []
@@ -60,6 +71,23 @@ export function buildConfigDraft(projectDir: string): string {
           '    # envs:                                        # 取消注释并按需填写',
           `    #   VITE_API_BASE: http://localhost:{${target}.port}`)
       }
+    }
+    if (s.type === 'springboot') {
+      const orm = detectSpringOrm(join(projectDir, s.dir))
+      lines.push(
+        '    # injectionMode: startupArgs           # springboot 默认即此，通常无需写',
+        '    # startCommand:                        # TODO 选一种跑法（mvn / gradle / java -jar）',
+        '    #   - mvn',
+        '    #   - spring-boot:run',
+        '    #   - -Dspring-boot.run.arguments=--server.port={self.port} --spring.datasource.url=jdbc:postgresql://{infra.postgres.host}:{infra.postgres.port}/{db.name}',
+        '    # envs:                                # TODO 需要走环境变量的（如密码）',
+        '    #   SPRING_DATASOURCE_URL: jdbc:postgresql://{infra.postgres.host}:{infra.postgres.port}/{db.name}',
+        '    #   SPRING_DATASOURCE_USERNAME: "{infra.postgres.username}"',
+        '    #   SPRING_DATASOURCE_PASSWORD: "{infra.postgres.password}"')
+      if (orm === 'mybatis')
+        lines.push('    #   # 侦测到 MyBatis：mapper 等非连接属性 bk 不碰，按需自填')
+      if (orm === 'jpa')
+        lines.push('    #   # 侦测到 JPA：spring.jpa.* 等非连接属性 bk 不碰，按需自填')
     }
     for (const lib of detectWorkerLibs(join(projectDir, s.dir))) {
       lines.push(

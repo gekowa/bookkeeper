@@ -80,4 +80,36 @@ describe('buildConfigDraft', () => {
     expect(yml).toContain('    # envs:')
     expect(yml).not.toContain('      VITE_API_BASE:')
   })
+
+  it('多模块 springboot：每模块一 service + 端口递增 + startCommand 注释', () => {
+    const root = mkdtempSync(join(tmpdir(), 'sb-'))
+    try {
+      mkdirSync(join(root, 'order-service'))
+      writeFileSync(join(root, 'order-service', 'pom.xml'),
+        '<project><parent><groupId>org.springframework.boot</groupId></parent>' +
+        '<dependency><artifactId>spring-boot-starter-data-jpa</artifactId></dependency></project>')
+      mkdirSync(join(root, 'user-service'))
+      writeFileSync(join(root, 'user-service', 'pom.xml'),
+        '<project><parent><groupId>org.springframework.boot</groupId></parent>' +
+        '<dependency><artifactId>mybatis-spring-boot-starter</artifactId></dependency></project>')
+      const yml = buildConfigDraft(root)
+      expect(yml).toMatch(/order-service:[\s\S]*type: springboot/)
+      expect(yml).toMatch(/user-service:[\s\S]*type: springboot/)
+      expect(yml).toContain('port_base: 10000')
+      expect(yml).toContain('port_base: 10100')
+      expect(yml).toContain('#   - mvn')
+      expect(yml).toContain('#   SPRING_DATASOURCE_URL')
+      expect(yml).toContain('侦测到 MyBatis')
+    } finally { rmSync(root, { recursive: true, force: true }) }
+  })
+
+  it('父聚合 pom（packaging=pom）不生成 service', () => {
+    const root = mkdtempSync(join(tmpdir(), 'sb-'))
+    try {
+      writeFileSync(join(root, 'pom.xml'),
+        '<project><packaging>pom</packaging><groupId>org.springframework.boot</groupId></project>')
+      const yml = buildConfigDraft(root)
+      expect(yml).toContain('# TODO 未侦测到 service，请手动填写')
+    } finally { rmSync(root, { recursive: true, force: true }) }
+  })
 })
