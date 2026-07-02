@@ -2,6 +2,27 @@
 
 本文件记录 BookKeeper（bk）的版本变更。
 
+## [未发布]
+
+### Added
+
+- **统一注入模型**：`envs` 成为唯一注入源（省略回退 `BK_*`，写了则替换；value 用占位符
+  `{port}`/`{service.X.port}`/`{infra.*}`/`{args}` 引用资源），新增 per-service `injectionMode`
+  （`dotEnv` / `startupArgs`）决定投递方式。`defaultStartCommand` 改为返回带 `{port}` 的模板，
+  端口不再单独传参（SSOT）。
+- **Spring Boot 框架**：新增 `springboot` service 类型（首个 JVM 框架、首个 `startupArgs` 消费者），
+  Maven/Gradle 自动侦测，隔离标识经命令行参数注入。
+
+### Changed
+
+- `FrameworkAdapter.defaultStartCommand(svc, port)` → `(svc, dir): string`（返回模板）；新增
+  `defaultInjectionMode`。
+- 端口/资源缺失校验统一收口到插值器（泛化原 `{port}` 校验）。
+
+### Migration
+
+- 现有 `bk_config.yml` 无需改动（全走 adapter 默认，行为不变）。
+
 ## [0.0.11] - 2026-06-27
 
 ### Fixed
