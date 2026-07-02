@@ -3,6 +3,7 @@ import { mkdirSync, rmSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { LaunchSpec } from './index.js'
+import { psPaneCommand } from './index.js'
 
 const PID_DIR = join(tmpdir(), 'bk-run')
 
@@ -24,7 +25,7 @@ export function buildWtArgs(specs: LaunchSpec[], psHost: string, pidFiles: strin
   specs.forEach((s, i) => {
     if (i > 0) args.push(';', 'split-pane')
     else args.push('new-tab')
-    args.push('-d', s.cwd, psHost, '-NoExit', '-Command', paneScript(s.command, pidFiles[i]))
+    args.push('-d', s.cwd, psHost, '-NoExit', '-Command', paneScript(psPaneCommand(s), pidFiles[i]))
   })
   return args
 }

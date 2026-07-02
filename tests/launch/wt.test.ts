@@ -36,4 +36,9 @@ describe('buildWtArgs', () => {
   it('宿主可执行用传入的 psHost', () => {
     expect(args).toContain('pwsh')
   })
+  it('startupArgs spec：paneScript 用 PowerShell 渲染 env+argv', () => {
+    const a = buildWtArgs([{ name: 'api', cwd: '/wt/api', argv: ['mvn', 'run'], env: { K: 'v' } }], 'pwsh', ['/tmp/p.pid'])
+    const joined = a.join(' ')
+    expect(joined).toContain(`$env:K='v'; & 'mvn' 'run'`)
+  })
 })

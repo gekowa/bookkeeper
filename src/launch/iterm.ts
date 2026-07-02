@@ -1,5 +1,6 @@
 import { execa } from 'execa'
 import type { LaunchSpec } from './index.js'
+import { posixLine } from './index.js'
 import { planGrid, type GridPlan } from './itermGrid.js'
 
 // 转义反斜杠与双引号，安全嵌入 AppleScript 字符串字面量
@@ -18,7 +19,7 @@ export function buildItermScript(specs: LaunchSpec[], plan: GridPlan): string[] 
   }
   specs.forEach((s, k) => {
     const sid = plan.order[k] // 第 k 个 service 落在哪个 session
-    lines.push(`tell s${sid}`, `write text "cd ${esc(s.cwd)} && ${esc(s.command)}"`, 'end tell')
+    lines.push(`tell s${sid}`, `write text "cd ${esc(s.cwd)} && ${esc(posixLine(s))}"`, 'end tell')
   })
   const ids = specs.map((_, k) => `unique id of s${plan.order[k]}`)
   lines.push(`return {${ids.join(', ')}}`)

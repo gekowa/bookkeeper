@@ -1,15 +1,19 @@
 import { spawn } from 'node:child_process'
 import type { LaunchSpec } from './index.js'
+import { psCommand } from './index.js'
 
 // 单个服务的 spawn 参数：在自己的 detached 控制台窗口里用 PowerShell 跑命令。
 export function buildWinSpawn(spec: LaunchSpec, psHost: string): {
   file: string; args: string[]
-  opts: { cwd: string; detached: true; stdio: 'ignore'; windowsHide: false }
+  opts: { cwd: string; detached: true; stdio: 'ignore'; windowsHide: false; env?: NodeJS.ProcessEnv }
 } {
   return {
     file: psHost,
-    args: ['-NoExit', '-Command', spec.command],
-    opts: { cwd: spec.cwd, detached: true, stdio: 'ignore', windowsHide: false },
+    args: ['-NoExit', '-Command', psCommand(spec)],
+    opts: {
+      cwd: spec.cwd, detached: true, stdio: 'ignore', windowsHide: false,
+      env: spec.env ? { ...process.env, ...spec.env } : undefined,
+    },
   }
 }
 

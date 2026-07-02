@@ -24,6 +24,20 @@ describe('buildWinSpawn', () => {
   })
 })
 
+describe('buildWinSpawn：startupArgs / dotEnv', () => {
+  it('startupArgs spec：argv 走 PowerShell 调用算子，env 进 spawn opts.env', () => {
+    const { args, opts } = buildWinSpawn(
+      { name: 'api', cwd: '/wt/api', argv: ['mvn', 'spring-boot:run'], env: { K: 'v' } }, 'pwsh')
+    expect(args[args.length - 1]).toBe(`& 'mvn' 'spring-boot:run'`)
+    expect(opts.env).toMatchObject({ K: 'v' })
+  })
+  it('dotEnv spec：command 原样，opts.env 不设', () => {
+    const { args, opts } = buildWinSpawn({ name: 'b', cwd: '/wt', command: 'uv run x' }, 'pwsh')
+    expect(args).toContain('uv run x')
+    expect(opts.env).toBeUndefined()
+  })
+})
+
 describe('runWin', () => {
   let unrefSpy: ReturnType<typeof vi.fn>
   beforeEach(() => {

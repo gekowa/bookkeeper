@@ -10,6 +10,7 @@ import { runWt } from './wt.js'
 import { runWin } from './win.js'
 import { resolvePsHost } from './platform.js'
 import { runIterm } from './iterm.js'
+import { renderPosix, renderPowerShell } from './render.js'
 
 export interface LaunchSpec {
   name: string; cwd: string; port?: number
@@ -81,4 +82,17 @@ export async function runLaunch(specs: LaunchSpec[], strategy: Strategy): Promis
   const ids = await runIterm(specs)
   const services: RunService[] = specs.map((s, i) => ({ name: s.name, itermSessionId: ids[i] }))
   return { strategy: 'iterm', services }
+}
+
+// tmux/print 用：posix shell 下 env 前缀 + argv（无 argv 时原样用 command）。
+export function posixLine(spec: LaunchSpec): string {
+  return spec.argv ? renderPosix(spec.env ?? {}, spec.argv) : spec.command!
+}
+// win 用：env 走 spawn opts.env 注入，故这里渲染时传空 env。
+export function psCommand(spec: LaunchSpec): string {
+  return spec.argv ? renderPowerShell({}, spec.argv) : spec.command!
+}
+// wt 用：pane 里的 PowerShell 没有额外注入 env 的机会，需把 env 一并渲进命令串。
+export function psPaneCommand(spec: LaunchSpec): string {
+  return spec.argv ? renderPowerShell(spec.env ?? {}, spec.argv) : spec.command!
 }

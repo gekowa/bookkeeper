@@ -11,4 +11,9 @@ describe('renderPrint', () => {
     expect(out).toContain('uv run ... :10002')
     expect(out).toContain('frontend')
   })
+
+  it('startupArgs spec：渲染 posix env 前缀 + argv', () => {
+    const out = renderPrint([{ name: 'api', cwd: '/wt/api', argv: ['mvn', 'spring-boot:run'], env: { K: 'v' } }])
+    expect(out).toContain(`K='v' 'mvn' 'spring-boot:run'`)
+  })
 })
