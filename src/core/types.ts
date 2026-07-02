@@ -35,6 +35,11 @@ export interface ResourceNames {
   redisDb?: number
   bucket?: string
 }
+export interface ResolveContext {
+  self: ServiceConfig
+  names: ResourceNames
+  infra: InfraConfig
+}
 export interface SetRecord {
   status: 'allocated' | 'free'
   owner: { worktree: string; branch: string } | null

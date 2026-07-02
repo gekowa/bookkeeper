@@ -24,9 +24,10 @@ export function serviceEnvDirs(ctx: Ctx): string[] {
 export function buildDirEnvs(ctx: Ctx, names: ResourceNames): Map<string, Record<string, string>> {
   const byDir = new Map<string, Record<string, string>>()
   for (const svc of ctx.config.services) {
+    const rc = { self: svc, names, infra: ctx.config.infra }
     const vars = {
       ...adapterFor(svc.type).envVars(names),
-      ...interpolateEnvs(svc.envs ?? {}, names, svc.name),
+      ...interpolateEnvs(svc.envs ?? {}, rc),
     }
     if (Object.keys(vars).length === 0) continue
     const dir = svc.dir ?? '.'
