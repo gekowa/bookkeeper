@@ -120,6 +120,7 @@ infra:
 | `django` | `uv run python manage.py runserver 0.0.0.0:{port}` | 需要 |
 | `fastapi` | `uv run uvicorn {app} --port {port}` | 需要 |
 | `vite` | `npm run dev -- --port {port}` | 需要 |
+| `springboot` | 无（必须配 `startCommand`） | 需要 |
 | `arq` | `uv run arq {app}.WorkerSettings` | 无 |
 | `celery` | `uv run celery -A {app} worker` | 无 |
 
@@ -180,6 +181,15 @@ services:
 - **环境**：钩子在 service 的 `dir` 下运行；注入该目录写进 `.env` 的同一批 `BK_*` 变量，外加 `BK_N`（资源集编号），可在命令中引用。
 - **失败策略**：命令失败采用 fail-fast（停在出错的 service，不跑后续），**worktree、已分配资源、.env 全部保留、不回滚**；修好后用 `bk setup` 重跑钩子，无需重建 worktree。
 - **重新执行**：新 worktree 创建后无需手动复跑；或用 `bk setup` 为当前 worktree 重新执行所有钩子。
+
+### injectionMode 与 SpringBoot
+
+- `injectionMode`：`dotEnv`（默认，django/fastapi/vite/arq/celery）把变量写进 service 目录 `.env`；`startupArgs`（默认，springboot）改为在 `bk start` 时注入进程。
+- SpringBoot 默认不读 `.env`，故用 `startupArgs`：
+  - **命令行参数 / `-D` 系统属性**：写进 `startCommand` 数组元素，用 token 插值，位置由你掌控（`java -jar` 后、或 `mvn -Dspring-boot.run.arguments=` 里）。
+  - **进程环境变量**：写进 `envs`（key 为大写环境变量名），bk 启动前注入进程环境。
+- token：`{self.port}`、`{<svc>.port}`、`{db.name}`、`{redis.db}`/`{redis.prefix}`、`{minio.bucket}`、`{infra.postgres.host|port|username|password}`、`{infra.redis.host|port}`、`{infra.minio.endpoint|access_key|secret_key}`。
+- springboot 无默认启动命令，必须配 `startCommand`。多模块：一模块一 service，`bk init` 自动逐子目录侦测。
 
 ## 使用
 

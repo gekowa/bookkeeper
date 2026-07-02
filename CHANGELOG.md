@@ -2,6 +2,16 @@
 
 本文件记录 BookKeeper（bk）的版本变更。
 
+## [0.0.11] - 2026-07-02
+
+### Added
+
+- **SpringBoot 服务类型**：新增 `springboot` service 类型，支持 Java Spring Boot 项目。无默认启动命令，需配置 `startCommand` 数组指定启动方式。
+- **`injectionMode` 机制**：两种配置注入模式——`dotEnv`（默认，django/fastapi/vite/arq/celery 写入 `.env`）与 `startupArgs`（springboot 默认，`bk start` 时注入进程）。
+- **`startCommand` 数组支持**：service 的 `startCommand` 支持数组格式（多条命令 / 多个参数组合），支持丰富的 token 插值。
+- **通用 token 解析器**：统一支持 `{self.port}`、`{<svc>.port}`、`{db.name}`、`{redis.db}`/`{redis.prefix}`、`{minio.bucket}`、`{infra.postgres.host|port|username|password}`、`{infra.redis.host|port}`、`{infra.minio.endpoint|access_key|secret_key}` 等 token，覆盖所有资源维度。
+- **多模块 init 与 ORM 起草**：`bk init` 侦测多模块项目时，自动逐子目录生成对应的 service 配置；ORM 映射（如 Hibernate entity 发现、数据库驱动推断）作为后续扩展方向。
+
 ## [0.0.10] - 2026-06-28
 
 ### Added
