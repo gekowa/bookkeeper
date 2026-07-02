@@ -41,6 +41,18 @@ describe('defaultStartCommand', () => {
     const s: ServiceConfig = { name: 'f', type: 'vite' }
     expect(() => adapterFor('vite').defaultStartCommand(s, rc(s, {}))).toThrow(/CONFIG_INVALID|端口|port/)
   })
+  it('未知 type → 抛错', () => {
+    // @ts-expect-error 故意传入未知 type
+    expect(() => adapterFor('nope')).toThrow(/未知|nope/)
+  })
+  it('arq 缺 app → CONFIG_INVALID', () => {
+    const s: ServiceConfig = { name: 'w', type: 'arq' }
+    expect(() => adapterFor('arq').defaultStartCommand(s, rc(s, {}))).toThrow(/CONFIG_INVALID|app/)
+  })
+  it('celery 缺 app → CONFIG_INVALID', () => {
+    const s: ServiceConfig = { name: 'w', type: 'celery' }
+    expect(() => adapterFor('celery').defaultStartCommand(s, rc(s, {}))).toThrow(/CONFIG_INVALID|app/)
+  })
 })
 
 describe('injectionModeFor', () => {

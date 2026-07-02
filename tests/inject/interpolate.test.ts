@@ -33,8 +33,14 @@ describe('resolveTokens', () => {
     const rc2: ResolveContext = { self, names: { ports: {} }, infra: {} }
     expect(() => resolveTokens('{infra.postgres.host}', rc2, 'x')).toThrow(/CONFIG_INVALID|infra/)
   })
-  it('无法识别的 token → CONFIG_INVALID', () =>
-    expect(() => resolveTokens('{bogus.thing}', rc, 'x')).toThrow(/CONFIG_INVALID/))
+  it('无法识别的 token → CONFIG_INVALID', () => {
+    try {
+      resolveTokens('{bogus.thing}', rc, 'x')
+      throw new Error('should have thrown')
+    } catch (e: any) {
+      expect(e.code).toBe('CONFIG_INVALID')
+    }
+  })
 })
 
 describe('interpolateEnvs', () => {

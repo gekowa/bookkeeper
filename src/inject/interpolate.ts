@@ -14,7 +14,7 @@ function portOf(name: string, rc: ResolveContext, where: string, expr: string): 
   return String(p)
 }
 
-const GROUP = new Set(['db', 'redis', 'minio', 'infra', 'self'])
+const GROUP = new Set(['db', 'redis', 'minio', 'infra'])
 
 function resolveOne(expr: string, rc: ResolveContext, where: string): string {
   if (expr === 'port' || expr === 'self.port') return portOf(rc.self.name, rc, where, expr)
@@ -31,7 +31,7 @@ function resolveOne(expr: string, rc: ResolveContext, where: string): string {
     if (v === undefined || v === null) fail(where, expr, `但 infra.${infra[1]}.${infra[2]} 未配置`)
     return String(v)
   }
-  fail(where, expr, '[CONFIG_INVALID] 无法识别该 token')
+  fail(where, expr, '无法识别该 token')
 }
 
 export function resolveTokens(value: string, rc: ResolveContext, where: string): string {

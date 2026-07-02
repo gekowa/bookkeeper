@@ -12,7 +12,7 @@ export function buildWinSpawn(spec: LaunchSpec, psHost: string): {
     args: ['-NoExit', '-Command', psCommand(spec)],
     opts: {
       cwd: spec.cwd, detached: true, stdio: 'ignore', windowsHide: false,
-      env: spec.env ? { ...process.env, ...spec.env } : undefined,
+      env: spec.env && Object.keys(spec.env).length ? { ...process.env, ...spec.env } : undefined,
     },
   }
 }
