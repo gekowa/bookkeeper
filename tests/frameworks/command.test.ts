@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { join } from 'node:path'
 import { adapterFor } from '../../src/frameworks/registry.js'
 
 const D = '/x' // dir 占位
@@ -29,4 +30,16 @@ describe('defaultStartCommand（返回 {port} 模板）', () => {
 describe('defaultInjectionMode', () => {
   for (const t of ['django', 'fastapi', 'vite', 'arq', 'celery'] as const)
     it(`${t} = dotEnv`, () => expect(adapterFor(t).defaultInjectionMode).toBe('dotEnv'))
+  it('springboot = startupArgs', () => expect(adapterFor('springboot').defaultInjectionMode).toBe('startupArgs'))
+})
+
+describe('springboot defaultStartCommand', () => {
+  const mavenFx = join(__dirname, '..', 'fixtures', 'springboot-proj')
+  const gradleFx = join(__dirname, '..', 'fixtures', 'springboot-proj-gradle')
+  it('Maven 模板（mvnw 不存在 → 回退 mvn）', () =>
+    expect(adapterFor('springboot').defaultStartCommand({ name: 'a', type: 'springboot', port_base: 10000 }, mavenFx))
+      .toBe('mvn spring-boot:run -Dspring-boot.run.arguments="--server.port={port} {args}"'))
+  it('Gradle 模板（gradlew 不存在 → 回退 gradle）', () =>
+    expect(adapterFor('springboot').defaultStartCommand({ name: 'a', type: 'springboot', port_base: 10000 }, gradleFx))
+      .toBe("gradle bootRun --args='--server.port={port} {args}'"))
 })

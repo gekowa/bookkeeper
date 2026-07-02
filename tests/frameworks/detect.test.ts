@@ -15,4 +15,6 @@ describe('detectType', () => {
     expect(arq.detect(fx('fastapi-proj'))).toBe(false)
     expect(celery.detect(fx('fastapi-proj'))).toBe(false)
   })
+  it('pom.xml 含 spring-boot → springboot', () => expect(detectType(fx('springboot-proj'))).toBe('springboot'))
+  it('build.gradle 含 org.springframework.boot → springboot', () => expect(detectType(fx('springboot-proj-gradle'))).toBe('springboot'))
 })
