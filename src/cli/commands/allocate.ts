@@ -9,6 +9,7 @@ import { resolveSet, provisionSet, buildSetRecord, planNames } from '../../core/
 import { writeEnvBlock, removeEnvBlock } from '../../inject/env.js'
 import { interpolateEnvs } from '../../inject/interpolate.js'
 import { adapterFor } from '../../frameworks/registry.js'
+import { injectionModeFor } from '../../frameworks/registry.js'
 import { ensureGitignore } from '../../inject/gitignore.js'
 import { findSetByWorktree, deallocateInState } from '../../core/deallocator.js'
 import { loadCtx, maxAttempts, runCommand } from '../context.js'
@@ -18,12 +19,15 @@ import { fingerprint } from '../../config/fingerprint.js'
 import { runPostAllocate } from '../../hooks/postAllocate.js'
 
 export function serviceEnvDirs(ctx: Ctx): string[] {
-  return [...new Set(ctx.config.services.map(s => s.dir ?? '.'))]
+  return [...new Set(ctx.config.services
+    .filter(s => injectionModeFor(s) !== 'startupArgs')
+    .map(s => s.dir ?? '.'))]
 }
 
 export function buildDirEnvs(ctx: Ctx, names: ResourceNames): Map<string, Record<string, string>> {
   const byDir = new Map<string, Record<string, string>>()
   for (const svc of ctx.config.services) {
+    if (injectionModeFor(svc) === 'startupArgs') continue  // envs 走进程环境，不写 .env
     const rc = { self: svc, names, infra: ctx.config.infra }
     const vars = {
       ...adapterFor(svc.type).envVars(names),

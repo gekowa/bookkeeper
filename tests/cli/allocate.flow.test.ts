@@ -141,3 +141,20 @@ describe('buildDirEnvs', () => {
     expect(map.has('frontend')).toBe(false)
   })
 })
+
+describe('buildDirEnvs 跳过 startupArgs', () => {
+  const names: ResourceNames = { ports: { api: 10202, web: 10102 }, database: 'foo_2' }
+  const ctx = { projectRoot: '/x', config: { project_name: 'foo', infra: {},
+    services: [
+      { name: 'api', type: 'springboot', dir: 'api', port_base: 10200,
+        envs: { SPRING_DATASOURCE_PASSWORD: 'sec' } },
+      { name: 'web', type: 'vite', dir: 'web', port_base: 10100,
+        envs: { VITE_API_BASE: 'http://localhost:{api.port}' } },
+    ] } } as unknown as Ctx
+
+  it('startupArgs service 不产生 .env 内容，dotEnv service 正常', () => {
+    const byDir = buildDirEnvs(ctx, names)
+    expect(byDir.has('api')).toBe(false)
+    expect(byDir.get('web')).toEqual({ VITE_API_BASE: 'http://localhost:10202' })
+  })
+})
