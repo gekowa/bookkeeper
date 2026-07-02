@@ -80,4 +80,18 @@ describe('buildConfigDraft', () => {
     expect(yml).toContain('    # envs:')
     expect(yml).not.toContain('      VITE_API_BASE:')
   })
+
+  it('侦测 springboot（pom.xml 含 spring-boot）→ 草稿含 type: springboot', () => {
+    const sdir = mkdtempSync(join(tmpdir(), 'proj-'))
+    try {
+      mkdirSync(join(sdir, 'api'))
+      writeFileSync(join(sdir, 'api', 'pom.xml'),
+        '<project><parent><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-parent</artifactId></parent></project>')
+      const yml = buildConfigDraft(sdir)
+      expect(yml).toMatch(/api:[\s\S]*type: springboot/)
+      expect(yml).toMatch(/api:[\s\S]*dir: api/)
+    } finally {
+      rmSync(sdir, { recursive: true, force: true })
+    }
+  })
 })
