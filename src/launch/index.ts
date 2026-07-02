@@ -1,7 +1,8 @@
 import { join } from 'node:path'
 import type { Ctx, SetRecord, RunHandle, RunService } from '../core/types.js'
 import { adapterFor } from '../frameworks/registry.js'
-import { BkError, Codes } from '../core/errors.js'
+import { setToResourceNames } from '../core/allocator.js'
+import { buildInterpValues, interpolateCommand, resolveServiceEnvs } from '../inject/interpolate.js'
 import { renderPrint } from './print.js'
 import { runTmux } from './tmux.js'
 import { runIterm } from './iterm.js'
@@ -10,24 +11,22 @@ export interface LaunchSpec { name: string; command: string; cwd: string }
 export type Strategy = 'tmux' | 'iterm' | 'print'
 export type LaunchResult = RunHandle | null
 
+const renderArgs = (envs: Record<string, string>): string =>
+  Object.entries(envs).map(([k, v]) => `--${k}=${v}`).join(' ')
+
 export function buildLaunchSpecs(ctx: Ctx, set: SetRecord, worktreeDir: string, only?: string): LaunchSpec[] {
+  const names = setToResourceNames(set)
   return ctx.config.services
     .filter(s => !only || s.name === only)
     .map(s => {
-      const port = (set.resources[s.name] as { port: number } | undefined)?.port
-      let command: string
-      if (s.command) {
-        if (s.command.includes('{port}') && port === undefined)
-          throw new BkError(Codes.CONFIG_INVALID,
-            `service ${s.name} 无端口但 command 引用了 {port}`,
-            { remediation: '移除 {port} 或为该 service 设置 port_base' })
-        command = port !== undefined
-          ? s.command.replace(/\{port\}/g, String(port))
-          : s.command
-      } else {
-        command = adapterFor(s.type).defaultStartCommand(s, port)
-      }
-      return { name: s.name, command, cwd: join(worktreeDir, s.dir ?? '.') }
+      const dir = join(worktreeDir, s.dir ?? '.')
+      const adapter = adapterFor(s.type)
+      const values = buildInterpValues(ctx, names, s)
+      const resolvedEnvs = resolveServiceEnvs(s, adapter, ctx, names)
+      const args = renderArgs(resolvedEnvs)
+      const tmpl = s.command ?? adapter.defaultStartCommand(s, dir)
+      const command = interpolateCommand(tmpl, values, args)
+      return { name: s.name, command, cwd: dir }
     })
 }
 
