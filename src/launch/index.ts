@@ -1,8 +1,9 @@
 import { join } from 'node:path'
 import type { Ctx, SetRecord, RunHandle, RunService, ResolveContext } from '../core/types.js'
-import { adapterFor } from '../frameworks/registry.js'
+import { adapterFor, injectionModeFor } from '../frameworks/registry.js'
 import { namesFromSet } from '../core/allocator.js'
 import { BkError, Codes } from '../core/errors.js'
+import { resolveTokens, interpolateEnvs } from '../inject/interpolate.js'
 import { renderPrint } from './print.js'
 import { runTmux } from './tmux.js'
 import { runWt } from './wt.js'
@@ -10,7 +11,12 @@ import { runWin } from './win.js'
 import { resolvePsHost } from './platform.js'
 import { runIterm } from './iterm.js'
 
-export interface LaunchSpec { name: string; command: string; cwd: string; port?: number }
+export interface LaunchSpec {
+  name: string; cwd: string; port?: number
+  command?: string
+  argv?: string[]
+  env?: Record<string, string>
+}
 export type Strategy = 'tmux' | 'iterm' | 'wt' | 'win' | 'print'
 export type LaunchResult = RunHandle | null
 
@@ -20,6 +26,19 @@ export function buildLaunchSpecs(ctx: Ctx, set: SetRecord, worktreeDir: string, 
     .filter(s => !only || s.name === only)
     .map(s => {
       const port = names.ports[s.name]
+      const cwd = join(worktreeDir, s.dir ?? '.')
+      const rc: ResolveContext = { self: s, names, infra: ctx.config.infra }
+
+      if (injectionModeFor(s) === 'startupArgs') {
+        if (!s.startCommand?.length)
+          throw new BkError(Codes.CONFIG_INVALID,
+            `service ${s.name}（injectionMode startupArgs）需要 startCommand`,
+            { remediation: '在 bk_config.yml 为该 service 写 startCommand 数组' })
+        const argv = s.startCommand.map(el => resolveTokens(el, rc, `service ${s.name} 的 startCommand`))
+        const env = interpolateEnvs(s.envs ?? {}, rc)
+        return { name: s.name, cwd, port, argv, env }
+      }
+
       let command: string
       if (s.command) {
         if (s.command.includes('{port}') && port === undefined)
@@ -28,10 +47,9 @@ export function buildLaunchSpecs(ctx: Ctx, set: SetRecord, worktreeDir: string, 
             { remediation: '移除 {port} 或为该 service 设置 port_base' })
         command = port !== undefined ? s.command.replace(/\{port\}/g, String(port)) : s.command
       } else {
-        const rc: ResolveContext = { self: s, names, infra: ctx.config.infra }
         command = adapterFor(s.type).defaultStartCommand(s, rc)
       }
-      return { name: s.name, command, cwd: join(worktreeDir, s.dir ?? '.'), port }
+      return { name: s.name, command, cwd, port }
     })
 }
 
