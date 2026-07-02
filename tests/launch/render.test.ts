@@ -14,6 +14,8 @@ describe('renderPosix', () => {
     expect(renderPosix({ K: `a'b` }, ['x'])).toBe(`K='a'\\''b' 'x'`)
   })
   it('无 env 时无前缀', () => expect(renderPosix({}, ['x'])).toBe(`'x'`))
+  it('空 argv 无 env 时返回空字符串', () => expect(renderPosix({}, [])).toBe(''))
+  it('空 argv 有 env 时返回仅环境前缀', () => expect(renderPosix({ K: 'v' }, [])).toBe(`K='v' `))
 })
 
 describe('renderPowerShell', () => {
@@ -28,4 +30,6 @@ describe('renderPowerShell', () => {
   it('值里单引号翻倍转义', () => {
     expect(renderPowerShell({}, [`a'b`])).toBe(`& 'a''b'`)
   })
+  it('空 argv 无 env 时返回空字符串', () => expect(renderPowerShell({}, [])).toBe(''))
+  it('空 argv 有 env 时返回仅环境前缀', () => expect(renderPowerShell({ K: 'v' }, [])).toBe(`$env:K='v'; `))
 })

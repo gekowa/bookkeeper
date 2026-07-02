@@ -9,6 +9,7 @@ export function renderPosix(env: Record<string, string>, argv: string[]): string
 
 export function renderPowerShell(env: Record<string, string>, argv: string[]): string {
   const e = Object.entries(env).map(([k, v]) => `$env:${k}=${sqPs(v)}; `).join('')
+  if (argv.length === 0) return e
   const [exe, ...rest] = argv
   const cmd = [`& ${sqPs(exe)}`, ...rest.map(sqPs)].join(' ')
   return `${e}${cmd}`
