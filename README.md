@@ -186,6 +186,8 @@ VITE_API_BASE=http://localhost:10001
 - **`dotEnv`（默认）**：resolved envs 写入该 service 目录的 `.env` 标记块（前文示例）。Django/FastAPI/Vite 等「原生读 `.env`」的框架用此模式。
 - **`startupArgs`**：除写 `.env` 外，**额外**把 resolved envs 经命令模板里的 `{args}` 展开成 `--KEY=VALUE` 命令行参数投递。原生不读 `.env` 的框架（Spring Boot）用此模式——隔离标识作为启动参数传入，优先级最高。
 
+注：`injectionMode` 是声明性的——实际投递取决于启动命令模板是否引用 `{args}`，因此只设 `injectionMode: startupArgs`（而命令模板里没有 `{args}`）并不会改变运行行为。
+
 省略该字段时，用框架的 `defaultInjectionMode`（django/fastapi/vite/arq/celery = `dotEnv`；springboot = `startupArgs`）。
 
 ### Spring Boot（injectionMode: startupArgs）

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   interpolateEnvs, interpolateCommand, buildInterpValues, type InterpValues,
 } from '../../src/inject/interpolate.js'
-import type { Ctx, ResourceNames } from '../../src/core/types.js'
+import type { Ctx, ResourceNames, ServiceConfig } from '../../src/core/types.js'
 
 const v: InterpValues = { svcName: 'frontend', ports: { backend: 10001, frontend: 10101 }, infra: {} }
 
@@ -43,7 +43,7 @@ describe('buildInterpValues', () => {
     minio: { endpoint: 'localhost:9000', access_key: 'ak', secret_key: 'sk' },
   } } }
   const names: ResourceNames = { ports: { api: 10002 }, database: 'p_2', redisDb: 2, bucket: 'p-2' }
-  const svc = { name: 'api', type: 'django' } as never
+  const svc = { name: 'api', type: 'django' } as ServiceConfig
 
   it('合并静态 infra 与动态分配值，支持全量占位符（含密钥）', () => {
     const vals = buildInterpValues(ctx, names, svc)
