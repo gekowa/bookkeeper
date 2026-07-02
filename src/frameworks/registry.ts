@@ -1,4 +1,4 @@
-import type { ServiceType } from '../core/types.js'
+import type { ServiceType, ServiceConfig } from '../core/types.js'
 import type { FrameworkAdapter } from './types.js'
 import { BkError, Codes } from '../core/errors.js'
 import { django } from './django.js'
@@ -17,4 +17,8 @@ export function adapterFor(type: ServiceType): FrameworkAdapter {
 
 export function detectType(dir: string): ServiceType | null {
   return ALL.find(a => a.detect(dir))?.type ?? null
+}
+
+export function injectionModeFor(svc: ServiceConfig): 'dotEnv' | 'startupArgs' {
+  return svc.injectionMode ?? adapterFor(svc.type).defaultInjectionMode
 }

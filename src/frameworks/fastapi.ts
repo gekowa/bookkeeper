@@ -6,13 +6,15 @@ import { backendEnvVars } from './backendEnv.js'
 
 export const fastapi: FrameworkAdapter = {
   type: 'fastapi',
+  defaultInjectionMode: 'dotEnv',
   detect: (dir) => {
     const p = join(dir, 'pyproject.toml')
     return existsSync(p) && /fastapi/i.test(readFileSync(p, 'utf8'))
   },
-  defaultStartCommand: (svc, port) => {
+  defaultStartCommand: (svc, rc) => {
     if (!svc.app) throw new BkError(Codes.CONFIG_INVALID,
       `fastapi service ${svc.name} 需在 config 设置 app（如 app.main:app）或 command`)
+    const port = rc.names.ports[svc.name]
     if (port === undefined) throw new BkError(Codes.CONFIG_INVALID,
       `fastapi service ${svc.name} 需要端口（设置 port_base）`)
     return `uv run uvicorn ${svc.app} --port ${port}`
