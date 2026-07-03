@@ -17,6 +17,7 @@ export interface InfraConfig {
   postgres?: { host: string; port: number; username: string; password: string }
   redis?: { host: string; port: number; isolation?: RedisIsolation }
   minio?: { endpoint: string; access_key: string; secret_key: string }
+  dameng?: { host: string; port: number; username: string; password: string }
 }
 export interface ProjectConfig {
   project_name: string
@@ -34,6 +35,7 @@ export interface ResourceNames {
   redisPrefix?: string
   redisDb?: number
   bucket?: string
+  dmSchema?: string
 }
 export interface SetRecord {
   status: 'allocated' | 'free'
@@ -44,6 +46,7 @@ export interface SetRecord {
     postgres?: { database: string }
     redis?: { prefix?: string; db?: number }
     minio?: { bucket: string }
+    dameng?: { schema: string }
   }
   created_at: string
   run?: RunRecord
