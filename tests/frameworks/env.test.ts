@@ -24,3 +24,14 @@ describe('adapter.envVars', () => {
       .toEqual({ BK_DB_NAME: 'foo_1', BK_REDIS_DB: '1', BK_MINIO_BUCKET: 'foo-1' })
   })
 })
+
+describe('dameng BK_DM_SCHEMA', () => {
+  it('dmSchema 产 BK_DM_SCHEMA', () => {
+    expect(adapterFor('django').envVars({ ports: {}, dmSchema: 'FOO_2' }))
+      .toEqual({ BK_DM_SCHEMA: 'FOO_2' })
+  })
+  it('postgres + dameng 共存时两者都产出', () => {
+    expect(adapterFor('springboot').envVars({ ports: {}, database: 'foo_2', dmSchema: 'FOO_2' }))
+      .toEqual({ BK_DB_NAME: 'foo_2', BK_DM_SCHEMA: 'FOO_2' })
+  })
+})
