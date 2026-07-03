@@ -38,7 +38,10 @@ export function createDamengProvider(): ResourceProvider {
       await c.execute(`CREATE SCHEMA "${schemaName(n, ctx)}"`)
     }),
     destroy: (n, ctx) => withClient(ctx, async (c) => {
-      await c.execute(`DROP SCHEMA "${schemaName(n, ctx)}" CASCADE`)
+      const name = schemaName(n, ctx)
+      const r = await c.execute(SCHEMA_EXISTS_SQL, [name])
+      if ((r.rows?.length ?? 0) === 0) return   // schema 不存在 → 幂等，直接返回（不依赖 DM 是否支持 IF EXISTS）
+      await c.execute(`DROP SCHEMA "${name}" CASCADE`)
     }),
   }
 }
