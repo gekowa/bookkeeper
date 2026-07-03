@@ -12,6 +12,9 @@
   端口不再单独传参（SSOT）。
 - **Spring Boot 框架**：新增 `springboot` service 类型（首个 JVM 框架、首个 `startupArgs` 消费者），
   Maven/Gradle 自动侦测，隔离标识经命令行参数注入。
+- **达梦数据库（DM8）支持**：新增 `infra.dameng` 可选 infra 类型，按 SCHEMA 隔离（所有 worktree 共用
+  同一连接用户、各自建独立 schema `<PROJECT>_N` 全大写）。后端注入 `BK_DM_SCHEMA`；占位符新增
+  `{infra.dameng.*}`。驱动用官方 `dmdb` npm 包（纯 JS）。集成测试接本机常驻实例（env 守卫、CI 跳过）。
 
 ### Changed
 
