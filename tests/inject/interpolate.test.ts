@@ -62,4 +62,18 @@ describe('buildInterpValues', () => {
     expect(() => interpolateCommand('{infra.redis.db}', vals, '')).toThrow(/CONFIG_INVALID|redis/)
     expect(interpolateCommand('{infra.redis.prefix}', vals, '')).toBe('p_2_')
   })
+  it('dameng: {infra.dameng.schema} 与静态字段（含密钥）', () => {
+    const ctxDm: Ctx = { projectRoot: '/x', config: { project_name: 'p', infra: {
+      dameng: { host: 'localhost', port: 5236, username: 'SYSDBA', password: 'dmpw' } } } }
+    const vals = buildInterpValues(ctxDm, { ports: {}, dmSchema: 'P_2' }, svc)
+    expect(interpolateCommand(
+      '{infra.dameng.schema}|{infra.dameng.host}|{infra.dameng.port}|{infra.dameng.username}|{infra.dameng.password}',
+      vals, '',
+    )).toBe('P_2|localhost|5236|SYSDBA|dmpw')
+  })
+  it('dameng 未声明时 {infra.dameng.schema} → CONFIG_INVALID', () => {
+    const empty: Ctx = { projectRoot: '/x', config: { project_name: 'p', infra: {} } }
+    const vals = buildInterpValues(empty, { ports: {} }, svc)
+    expect(() => interpolateCommand('{infra.dameng.schema}', vals, '')).toThrow(/CONFIG_INVALID|dameng/)
+  })
 })

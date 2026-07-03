@@ -9,6 +9,7 @@ export interface InterpValues {
     postgres?: { database?: string; host?: string; port?: number; username?: string; password?: string }
     redis?: { db?: number; prefix?: string; host?: string; port?: number }
     minio?: { bucket?: string; endpoint?: string; access_key?: string; secret_key?: string }
+    dameng?: { schema?: string; host?: string; port?: number; username?: string; password?: string }
   }
 }
 
@@ -36,8 +37,8 @@ function lookup(tok: string, v: InterpValues, args: string | undefined): string 
     if (p === undefined) bail(v.svcName, tok, `找不到服务 ${m[1]} 的端口`)
     return String(p)
   }
-  if ((m = tok.match(/^infra\.(postgres|redis|minio)\.(\w+)$/))) {
-    const sec = v.infra[m[1] as 'postgres' | 'redis' | 'minio']
+  if ((m = tok.match(/^infra\.(postgres|redis|minio|dameng)\.(\w+)$/))) {
+    const sec = v.infra[m[1] as 'postgres' | 'redis' | 'minio' | 'dameng']
     const val = sec?.[m[2] as keyof typeof sec]
     if (val === undefined) bail(v.svcName, tok, `${m[1]}.${m[2]} 不可用（infra 未声明或资源未分配）`)
     return String(val)
@@ -79,6 +80,11 @@ export function buildInterpValues(ctx: Ctx, names: ResourceNames, svc: ServiceCo
       minio: (i.minio || names.bucket) ? {
         endpoint: i.minio?.endpoint, access_key: i.minio?.access_key, secret_key: i.minio?.secret_key,
         bucket: names.bucket,
+      } : undefined,
+      dameng: (i.dameng || names.dmSchema) ? {
+        schema: names.dmSchema,
+        host: i.dameng?.host, port: i.dameng?.port,
+        username: i.dameng?.username, password: i.dameng?.password,
       } : undefined,
     },
   }
