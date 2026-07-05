@@ -107,23 +107,30 @@ infra:
     endpoint: localhost:9000
     access_key: minioadmin
     secret_key: minioadmin
+  dameng:                # 可选；达梦 DM8。所有 worktree 共用同一连接用户，按 SCHEMA 隔离
+    host: 127.0.0.1
+    port: 5236
+    username: SYSDBA
+    password: "***"
 ```
 
 > 凭据明文写在提交进 git 的 config 里——仅适用于"本地 Docker、可丢弃的 dev 实例"。切勿将此 config 指向任何非本地基础设施。
 
 用 `bk init` 可框架感知地自动侦测当前项目（先认 service 类型，再据类型去翻该框架的惯例配置位如 `settings.py`/`config.py`/`.env` 提取 infra 连接信息；`docker-compose.yml` 作为靠后的补充来源），生成 `bk_config.yml` 草稿，**请审核后再使用**。
 
-### 默认启动命令（按 type 推导，`{port}` 由 bk 填）
+### 默认启动命令（按 type 推导，`{port}`/`{args}` 由 bk 填）
 
 | type | 默认命令 | 端口 |
 |------|---------|------|
 | `django` | `uv run python manage.py runserver 0.0.0.0:{port}` | 需要 |
 | `fastapi` | `uv run uvicorn {app} --port {port}` | 需要 |
+| `springboot`（Maven） | `./mvnw spring-boot:run -Dspring-boot.run.arguments="--server.port={port} {args}"` | 需要 |
+| `springboot`（Gradle） | `./gradlew bootRun --args='--server.port={port} {args}'` | 需要 |
 | `vite` | `npx vite --port {port}` | 需要 |
 | `arq` | `uv run arq {app}.WorkerSettings` | 无 |
 | `celery` | `uv run celery -A {app} worker` | 无 |
 
-Python 项目一律用 `uv`。
+Python 项目一律用 `uv`。Spring Boot 自动侦测 Maven（`pom.xml`）或 Gradle（`build.gradle`/`build.gradle.kts`），优先用 wrapper（`./mvnw`/`./gradlew`），缺省回退全局 `mvn`/`gradle`。
 
 ### service 目录与无端口 worker
 
@@ -141,6 +148,7 @@ Python 项目一律用 `uv`。
 BK_DB_NAME=foo_2
 BK_REDIS_DB=2
 BK_MINIO_BUCKET=foo-2
+BK_DM_SCHEMA=FOO_2          # 仅 infra 声明达梦时
 # <<< bk managed <<<
 ```
 
@@ -152,15 +160,62 @@ VITE_API_BASE=http://localhost:10001
 # <<< bk managed <<<
 ```
 
-- **后端只写动态隔离标识**——数据库名、Redis db 号、MinIO 桶名。主机/端口/账号密码这些共享静态连接信息不归 bk 管，留在你自己 `.env` 的 secrets 里（块外，bk 绝不触碰）。
-- **前端写 `envs`**：在 vite service 上声明 `envs` 映射，值里可用占位符 `{<服务名>.port}` 引用某 service 的已分配端口（如 `{backend.port}`）。bk 在 allocate 时插值后写入。**vite 不写任何 `BK_` 变量**；**没写 `envs` 就什么都不写**。
-- **占位符**：首批支持 `{<服务名>.port}`；引用了不存在或无 `port_base` 的服务名会报 `CONFIG_INVALID`。
+- **后端只写动态隔离标识**——数据库名、Redis db 号、MinIO 桶名。主机/端口/账号密码这些共享静态连接信息不归 bk 管，留在你自己 `.env` 的 secrets 里（块外，bk 绝不触碰）。达梦的隔离标识是 schema 名（`BK_DM_SCHEMA`，大写）；所有 worktree 共用同一连接用户、连接串恒定，应用据此设置当前 schema（如 Spring Boot `spring.datasource.hikari.schema=${BK_DM_SCHEMA}`）。
+- **`envs` 是唯一注入源**（统一模型）：每个 service 都可声明 `envs` 映射，**省略则回退该框架的默认**（后端产 `BK_*`，vite 什么都不写），**写了则整体替换默认**；value 用占位符引用已分配资源，allocate 时插值。前端（vite）只用 `envs` 声明 `VITE_*`，**不写任何 `BK_` 变量**。
+- **占位符**：支持 `{port}` / `{service.<名>.port}`（或别名 `{<名>.port}`）/ `{infra.*}` / `{args}` 四类，完整语法见[下文](#占位符语法)；引用了不存在或无 `port_base` 的服务名、或缺失的 infra 字段会报 `CONFIG_INVALID`。
 - **`bk init` 会探测前端**：扫前端目录的 `.env`/`.env.example`/`.env.local`/`.env.development`，命中 `VITE_*=http://...localhost...` 就把变量名与格式搬进 `envs`（端口替换成 `{backend.port}`）；探不到则留一段注释掉的 `envs` stub 供你启用。
 - **监听端口仍走启动命令参数**（各框架原生读各自目录下的 `.env`）。
 - **写在每个 service 的目录里**：同目录多个 service（如后端 + worker）共用一份，env 需求合并。
 - `.env` 含本机私有分配值，`bk init` 会把它加进 `.gitignore`。
 
 > 时序保证：`bk worktree create` 返回那一刻，`.env` 已写好且指向正确的库。因此你/AI 任何时候跑 `uv run python manage.py migrate` / seed，都会落进正确的库。资源初始化流程由你的项目决定（通常 migration 自动、seed 手动），bk 提供钩子但不代劳。想自动化可配 post_allocate 钩子，见下节。
+
+### 占位符语法
+
+`envs` 的值与 `command` 模板里都可用占位符引用本次分配的资源，allocate/launch 时统一插值（`src/inject/interpolate.ts`）：
+
+| 占位符 | 含义 | 字段示例 |
+|--------|------|---------|
+| `{port}` | 当前 service 的端口 | — |
+| `{service.<名>.port}` | 指定 service 的端口（别名 `{<名>.port}`） | `{service.backend.port}` |
+| `{infra.postgres.<字段>}` | PostgreSQL 资源 | `database` / `host` / `port` / `username` / `password` |
+| `{infra.redis.<字段>}` | Redis 资源 | `db` / `prefix` / `host` / `port` |
+| `{infra.minio.<字段>}` | MinIO 资源 | `bucket` / `endpoint` / `access_key` / `secret_key` |
+| `{infra.dameng.<字段>}` | 达梦资源 | `schema` / `host` / `port` / `username` / `password` |
+| `{args}` | 把 resolved `envs` 渲染成 `--KEY=VALUE` 命令行参数 | 仅可用于 `command` |
+
+引用了未声明/未分配的资源（无 `port_base` 的服务、缺失的 infra 字段）报 `CONFIG_INVALID`。`{args}` 只能出现在 `command` 里，不能用在 `envs` 的值中。
+
+### injectionMode：投递方式
+
+每个 service 可选 `injectionMode` 字段，决定 resolved envs 的投递方式：
+
+- **`dotEnv`（默认）**：resolved envs 写入该 service 目录的 `.env` 标记块（前文示例）。Django/FastAPI/Vite 等「原生读 `.env`」的框架用此模式。
+- **`startupArgs`**：除写 `.env` 外，**额外**把 resolved envs 经命令模板里的 `{args}` 展开成 `--KEY=VALUE` 命令行参数投递。原生不读 `.env` 的框架（Spring Boot）用此模式——隔离标识作为启动参数传入，优先级最高。
+
+注：`injectionMode` 是声明性的——实际投递取决于启动命令模板是否引用 `{args}`，因此只设 `injectionMode: startupArgs`（而命令模板里没有 `{args}`）并不会改变运行行为。
+
+省略该字段时，用框架的 `defaultInjectionMode`（django/fastapi/vite/arq/celery = `dotEnv`；springboot = `startupArgs`）。
+
+### Spring Boot（injectionMode: startupArgs）
+
+Spring Boot 原生不读 `.env`，bk 用命令行参数投递隔离标识（优先级最高，干净 override）。默认 `envs`
+省略时回退 `BK_*`，经命令里的 `{args}` 展开为 `--BK_DB_NAME=..`；项目 `application.yml` 用同名占位符
+引用：
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/${BK_DB_NAME}
+    hikari:
+      schema: ${BK_DM_SCHEMA}   # 达梦：当前 schema（仅用达梦时）
+  data:
+    redis:
+      database: ${BK_REDIS_DB}
+```
+
+若项目 yml 用别的属性名，自行声明 `envs` 把资源映射到你自己的 key（value 用占位符，如
+`MY_DB: "{infra.postgres.database}"`），并可用 `command:` 覆盖启动命令。
 
 ### post_allocate 钩子
 
@@ -326,6 +381,6 @@ bk destroy <n>
 
 ## 实现
 
-Node/TS 实现，`npm i -g bookkeeper`。Node 是前后端项目的最大公约数（未来支持 Java 项目时，本机不一定有 Python，但一定有 Node）。
+Node/TS 实现，`npm i -g bookkeeper`。Node 是本机开发环境的最大公约数（即便项目是 Python 或 Java，本机不一定有对应运行时，但只要跑前端就一定有 Node）。
 
-首批支持：**Django、FastAPI、Vite**，外加无端口 worker **arq、celery**；Java、其他 Node 框架后续再说。
+已支持：**Django、FastAPI、Spring Boot（Maven/Gradle，本机需有 JDK）**、前端 **Vite**，外加无端口 worker **arq、celery**；其他 Node/JVM 框架后续再说。

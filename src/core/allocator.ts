@@ -48,5 +48,22 @@ export function buildSetRecord(
   if (names.redisPrefix || names.redisDb !== undefined)
     resources.redis = { prefix: names.redisPrefix, db: names.redisDb }
   if (names.bucket) resources.minio = { bucket: names.bucket }
+  if (names.dmSchema) resources.dameng = { schema: names.dmSchema }
   return { status: owner ? 'allocated' : 'free', owner, resources, created_at: new Date().toISOString() }
+}
+
+export function setToResourceNames(set: SetRecord): ResourceNames {
+  const ports: Record<string, number> = {}
+  for (const [svc, r] of Object.entries(set.resources)) {
+    if (svc === 'postgres' || svc === 'redis' || svc === 'minio' || svc === 'dameng') continue
+    if (r && typeof r === 'object' && 'port' in r) ports[svc] = (r as { port: number }).port
+  }
+  return {
+    ports,
+    database: set.resources.postgres?.database,
+    redisDb: set.resources.redis?.db,
+    redisPrefix: set.resources.redis?.prefix,
+    bucket: set.resources.minio?.bucket,
+    dmSchema: set.resources.dameng?.schema,
+  }
 }

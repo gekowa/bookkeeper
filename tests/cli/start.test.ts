@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { join } from 'node:path'
 import { buildLaunchSpecs } from '../../src/launch/index.js'
 import type { Ctx, SetRecord } from '../../src/core/types.js'
 
@@ -36,6 +37,18 @@ describe('buildLaunchSpecs', () => {
     const spec = buildLaunchSpecs(ctxW, setW, '/wt')[0]
     expect(spec.command).toBe('uv run arq app.worker.WorkerSettings')
     expect(spec.cwd).toBe('/wt/backend')
+  })
+  it('springboot 全链路：真实资源 → 完整 Maven 命令（{port} + {args}）', () => {
+    const fx = join(__dirname, '..', 'fixtures')
+    const ctxSb: Ctx = { projectRoot: '/x', config: { project_name: 'foo', infra: {},
+      services: [{ name: 'api', type: 'springboot', port_base: 10000, dir: 'springboot-proj' }] } }
+    const setSb: SetRecord = { status: 'allocated', owner: { worktree: '/wt', branch: 'x' },
+      resources: { api: { port: 10002 }, postgres: { database: 'foo_2' }, redis: { db: 2 }, minio: { bucket: 'foo-2' } },
+      created_at: 'x' }
+    const specs = buildLaunchSpecs(ctxSb, setSb, fx)
+    expect(specs[0].command).toBe(
+      'mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=10002 --BK_DB_NAME=foo_2 --BK_REDIS_DB=2 --BK_MINIO_BUCKET=foo-2"',
+    )
   })
   it('command 含 {port} 但无端口 → 抛 CONFIG_INVALID', () => {
     const ctxBad: Ctx = { projectRoot: '/x', config: { project_name: 'foo', infra: {},

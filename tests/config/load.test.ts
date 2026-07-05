@@ -126,4 +126,23 @@ infra: {}
 `)
     expect(loadConfig(root).services[0].post_allocate).toBeUndefined()
   })
+
+  it('injectionMode 非法值 → CONFIG_INVALID', () => {
+    const yaml = 'project_name: p\nservices:\n  api:\n    type: django\n    injectionMode: nope\n'
+    const dir = mkdtempSync(join(tmpdir(), 'cfg-'))
+    try {
+      writeFileSync(join(dir, 'bk_config.yml'), yaml)
+      expect(() => loadConfig(dir)).toThrow(/CONFIG_INVALID|injectionMode/)
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
+  it('injectionMode 合法值 dotEnv / startupArgs 可解析', () => {
+    const yaml = 'project_name: p\nservices:\n  a:\n    type: django\n    injectionMode: dotEnv\n  b:\n    type: springboot\n    injectionMode: startupArgs\n'
+    const dir = mkdtempSync(join(tmpdir(), 'cfg-'))
+    try {
+      writeFileSync(join(dir, 'bk_config.yml'), yaml)
+      const cfg = loadConfig(dir)
+      expect(cfg.services[0].injectionMode).toBe('dotEnv')
+      expect(cfg.services[1].injectionMode).toBe('startupArgs')
+    } finally { rmSync(dir, { recursive: true, force: true }) }
+  })
 })

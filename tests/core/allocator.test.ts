@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { resolveSet, provisionSet } from '../../src/core/allocator.js'
+import { resolveSet, provisionSet, buildSetRecord, setToResourceNames } from '../../src/core/allocator.js'
 import { Codes } from '../../src/core/errors.js'
 import { fakeProvider } from '../helpers/fakeProvider.js'
 import type { Ctx } from '../../src/core/types.js'
@@ -39,5 +39,23 @@ describe('provisionSet 回滚', () => {
     const b = fakeProvider({ kind: 'b', provision: async () => { throw new Error('boom') } })
     await expect(provisionSet([a, b], ctx, 1)).rejects.toThrow('boom')
     expect(destroyA).toHaveBeenCalledOnce()
+  })
+})
+
+describe('达梦资源映射', () => {
+  it('buildSetRecord: dmSchema → resources.dameng', () => {
+    const rec = buildSetRecord(
+      { ports: { api: 10001 }, dmSchema: 'FOO_2' },
+      { worktree: '/wt', branch: 'x' },
+    )
+    expect(rec.resources.dameng).toEqual({ schema: 'FOO_2' })
+  })
+  it('setToResourceNames: resources.dameng → dmSchema（且不计入端口遍历）', () => {
+    const names = setToResourceNames({
+      status: 'allocated', owner: null, created_at: 'x',
+      resources: { api: { port: 10001 }, dameng: { schema: 'FOO_3' } },
+    })
+    expect(names.dmSchema).toBe('FOO_3')
+    expect(names.ports).toEqual({ api: 10001 })  // dameng 不被误当服务端口
   })
 })

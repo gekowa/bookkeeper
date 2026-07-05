@@ -7,7 +7,7 @@ import { withState } from '../../state/store.js'
 import { activeProviders } from '../../providers/registry.js'
 import { resolveSet, provisionSet, buildSetRecord, planNames } from '../../core/allocator.js'
 import { writeEnvBlock, removeEnvBlock } from '../../inject/env.js'
-import { interpolateEnvs } from '../../inject/interpolate.js'
+import { resolveServiceEnvs } from '../../inject/interpolate.js'
 import { adapterFor } from '../../frameworks/registry.js'
 import { ensureGitignore } from '../../inject/gitignore.js'
 import { findSetByWorktree, deallocateInState } from '../../core/deallocator.js'
@@ -24,10 +24,7 @@ export function serviceEnvDirs(ctx: Ctx): string[] {
 export function buildDirEnvs(ctx: Ctx, names: ResourceNames): Map<string, Record<string, string>> {
   const byDir = new Map<string, Record<string, string>>()
   for (const svc of ctx.config.services) {
-    const vars = {
-      ...adapterFor(svc.type).envVars(names),
-      ...interpolateEnvs(svc.envs ?? {}, names, svc.name),
-    }
+    const vars = resolveServiceEnvs(svc, adapterFor(svc.type), ctx, names)
     if (Object.keys(vars).length === 0) continue
     const dir = svc.dir ?? '.'
     byDir.set(dir, { ...(byDir.get(dir) ?? {}), ...vars })

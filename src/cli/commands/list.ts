@@ -36,6 +36,7 @@ export function renderSet(n: string, r: StateFile['sets'][string], config: Proje
   if (config.infra.redis && r.resources.redis?.prefix) lines.push(`    - Redis prefix: ${r.resources.redis.prefix}`)
   if (config.infra.redis && r.resources.redis?.db !== undefined) lines.push(`    - Redis db: ${r.resources.redis.db}`)
   if (config.infra.minio && r.resources.minio) lines.push(`    - MinIO bucket: ${r.resources.minio.bucket}`)
+  if (config.infra.dameng && r.resources.dameng) lines.push(`    - 达梦 schema: ${r.resources.dameng.schema}`)
   return lines.join('\n')
 }
 

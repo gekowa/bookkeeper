@@ -3,6 +3,7 @@ import type { Command } from 'commander'
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { detectType } from '../../frameworks/registry.js'
+import { discoverSpringBootServices } from '../../frameworks/springboot.js'
 import { ensureGitignore } from '../../inject/gitignore.js'
 import { runCommand } from '../context.js'
 import { success, warn } from '../output.js'
@@ -17,6 +18,22 @@ function detectWorkerLibs(dir: string): ('arq' | 'celery')[] {
   return libs
 }
 
+/** 容器目录下若有 maven-settings*.xml（私有镜像等），启动/安装命令需带 `-s <file>`。 */
+function detectMavenSettings(containerDir: string): string | null {
+  try {
+    return readdirSync(containerDir).find(x => /^maven-settings.*\.xml$/.test(x)) ?? null
+  } catch { return null }
+}
+
+function sbRunCommand(moduleRelPath: string, settings: string | null): string {
+  const s = settings ? `-s ${settings} ` : ''
+  return `mvn ${s}spring-boot:run -pl ${moduleRelPath} -Dmaven.test.skip=true -Dspring-boot.run.jvmArguments=-DSERVER_PORT={port}`
+}
+
+function sbInstallCommand(settings: string | null): string {
+  const s = settings ? `-s ${settings} ` : ''
+  return `mvn ${s}install -Dmaven.test.skip=true -Dcheckstyle.skip=true -Dspotbugs.skip=true -Denforcer.skip=true`
+}
 function detectViteApiEnvs(dir: string): { name: string; url: string }[] {
   const files = ['.env', '.env.example', '.env.local', '.env.development']
   const out: { name: string; url: string }[] = []
@@ -36,16 +53,36 @@ function detectViteApiEnvs(dir: string): { name: string; url: string }[] {
 export function buildConfigDraft(projectDir: string): string {
   const subdirs = readdirSync(projectDir)
     .filter(d => { try { return statSync(join(projectDir, d)).isDirectory() } catch { return false } })
-  const detected: { name: string; type: string | null; dir: string }[] = []
+  const detected: { name: string; type: string | null; dir: string; module?: string; settings?: string | null }[] = []
   const rootType = detectType(projectDir)
   if (rootType) detected.push({ name: basename(projectDir), type: rootType, dir: '.' })
-  for (const d of subdirs) detected.push({ name: d, type: detectType(join(projectDir, d)), dir: d })
+  for (const d of subdirs) {
+    const abs = join(projectDir, d)
+    // springboot 多模块容器（如 backend/）：展开为每微服务一条，dir 指向 Maven 根
+    const sbServices = discoverSpringBootServices(abs)
+    if (sbServices.length) {
+      const settings = detectMavenSettings(abs)
+      for (const svc of sbServices)
+        detected.push({ name: svc.name, type: 'springboot', dir: d, module: svc.moduleRelPath, settings })
+    } else {
+      detected.push({ name: d, type: detectType(abs), dir: d })
+    }
+  }
   const services = detected.filter(d => d.type)
 
   const lines = [`project_name: ${basename(projectDir)}`, '', 'services:']
   let base = 10000
+  let installHookEmitted = false
   for (const s of services) {
     lines.push(`  ${s.name}:`, `    type: ${s.type}`, `    port_base: ${base}`, `    dir: ${s.dir}`)
+    if (s.module) {
+      lines.push(`    command: '${sbRunCommand(s.module, s.settings ?? null)}'`)
+      if (!installHookEmitted) {
+        lines.push(`    post_allocate: '${sbInstallCommand(s.settings ?? null)}'  # 刷 m2：common/*.client/*-starter 入本地仓库`)
+        installHookEmitted = true
+      }
+      lines.push(`    # TODO 按需补 -Dspring-boot.run.profiles=dev 等（profile/Nacos 密钥由项目定）`)
+    }
     if (s.type === 'fastapi') lines.push(`    # app: app.main:app   # TODO fastapi 入口`)
     if (s.type === 'vite') {
       // 单后端假设：取第一个非 vite 服务作为占位符目标；多后端消歧属非目标

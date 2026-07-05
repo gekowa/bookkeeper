@@ -14,7 +14,13 @@ export function loadConfig(projectRoot: string): ProjectConfig {
       throw new BkError(Codes.CONFIG_INVALID, `service ${name} 的 port_base 必须是数字`)
     if (s.envs !== undefined && (typeof s.envs !== 'object' || Array.isArray(s.envs)))
       throw new BkError(Codes.CONFIG_INVALID, `service ${name} 的 envs 必须是键值映射`)
-    return { name, type: s.type, port_base: s.port_base, command: s.command, app: s.app, dir: s.dir, envs: s.envs, post_allocate: s.post_allocate }
+    if (s.injectionMode !== undefined && !['dotEnv', 'startupArgs'].includes(s.injectionMode))
+      throw new BkError(Codes.CONFIG_INVALID,
+        `service ${name} 的 injectionMode 必须是 dotEnv 或 startupArgs`)
+    return {
+      name, type: s.type, port_base: s.port_base, command: s.command, app: s.app,
+      dir: s.dir, envs: s.envs, injectionMode: s.injectionMode, post_allocate: s.post_allocate,
+    }
   })
   return {
     project_name: raw.project_name,

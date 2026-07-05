@@ -9,12 +9,13 @@ const config: ProjectConfig = {
   infra: {
     postgres: { host: 'h', port: 5432, username: 'u', password: 'p' },
     minio: { endpoint: 'e', access_key: 'a', secret_key: 's' },
+    dameng: { host: '127.0.0.1', port: 5236, username: 'SYSDBA', password: 'p' },
   },
 }
 
 const state: StateFile = { project_name: 'foo', config_fingerprint: '', sets: {
   '1': { status: 'allocated', owner: { worktree: '/wt/foo.x', branch: 'x' },
-    resources: { backend: { port: 10001 }, postgres: { database: 'foo_1' }, minio: { bucket: 'foo-1' } }, created_at: 'x' },
+    resources: { backend: { port: 10001 }, postgres: { database: 'foo_1' }, minio: { bucket: 'foo-1' }, dameng: { schema: 'FOO_1' } }, created_at: 'x' },
   '3': { status: 'free', owner: null,
     resources: { backend: { port: 10003 }, postgres: { database: 'foo_3' } }, created_at: 'x' },
 }}
@@ -71,5 +72,15 @@ describe('renderList', () => {
     const noPg: ProjectConfig = { ...config, infra: { minio: config.infra.minio } }
     const out = renderList(state, 'foo', noPg)
     expect(out).not.toContain('PostgreSQL:')
+  })
+
+  it('含 dameng infra 时显示「达梦 schema」行', () => {
+    const out = renderList(state, 'foo', config)
+    expect(out).toContain('达梦 schema: FOO_1')
+  })
+  it('infra 不含 dameng 时，不显示达梦行（即使已持久化）', () => {
+    const noDm: ProjectConfig = { ...config, infra: { postgres: config.infra.postgres } }
+    const out = renderList(state, 'foo', noDm)
+    expect(out).not.toContain('达梦 schema')
   })
 })

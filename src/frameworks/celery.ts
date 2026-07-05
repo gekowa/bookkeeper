@@ -5,7 +5,8 @@ import { backendEnvVars } from './backendEnv.js'
 export const celery: FrameworkAdapter = {
   type: 'celery',
   detect: () => false,
-  defaultStartCommand: (svc) => {
+  defaultInjectionMode: 'dotEnv',
+  defaultStartCommand: (svc, _dir) => {
     if (!svc.app) throw new BkError(Codes.CONFIG_INVALID,
       `celery service ${svc.name} 需在 config 设置 app（如 app.celery）或 command`)
     return `uv run celery -A ${svc.app} worker`
