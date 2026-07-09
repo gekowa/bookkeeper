@@ -1,8 +1,9 @@
 import { execa } from 'execa'
-import { mkdirSync, rmSync, readFileSync } from 'node:fs'
+import { mkdirSync, rmSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import type { LaunchSpec } from './index.js'
+import { gridShape } from './grid.js'
 
 const PID_DIR = join(tmpdir(), 'bk-run')
 
@@ -26,20 +27,27 @@ export function launcherScriptContent(command: string, pidFile: string): string 
   return `$PID | Out-File -Encoding ascii '${escaped}'\n${command}\n`
 }
 
-// pane 命令：PowerShell 先把自身 $PID 写进 pidfile，再跑原命令。
-function paneScript(command: string, pidFile: string): string {
-  // 注：$PID 为 PowerShell HOST 进程的 PID，服务作为其子进程运行，bk stop 须用 taskkill /T 才能树杀到子进程。
-  return `$PID | Out-File -Encoding ascii '${pidFile}'; ${command}`
-}
-
-// 构建 `wt` 的 argv：new-tab + 重复 split-pane（auto 平铺），子命令以 ';' 分隔。
-export function buildWtArgs(specs: LaunchSpec[], psHost: string, pidFiles: string[]): string[] {
-  const args: string[] = []
-  specs.forEach((s, i) => {
-    if (i > 0) args.push(';', 'split-pane')
-    else args.push('new-tab')
-    args.push('-d', s.cwd, psHost, '-NoExit', '-Command', paneScript(s.command, pidFiles[i]))
-  })
+// 构建 wt argv：planGrid 同款均匀网格（列优先），聚焦相对构造。
+// 1) new-tab = 格(0,0)；2) 左→右切等宽列（-V）；3) 最右列→左逐列自上而下切行（-H），
+// 列间 move-focus left（左邻列此时必为单一整列 pane，方向无歧义）。
+// --size 为新 pane 占被切 pane 的比例，依次 (m-1)/m 得到等分。
+export function buildWtArgs(specs: LaunchSpec[], psHost: string, scriptFiles: string[]): string[] {
+  const counts = gridShape(specs.length)
+  const cols = counts.length
+  // 列优先下标：第 c 列首格的 service 下标 = 前面各列格数之和
+  const first = (c: number) => counts.slice(0, c).reduce((a, b) => a + b, 0)
+  const pane = (i: number) => ['-d', specs[i].cwd, '--title', specs[i].name,
+    psHost, '-NoExit', '-ExecutionPolicy', 'Bypass', '-File', scriptFiles[i]]
+  const args = ['new-tab', ...pane(0)]
+  for (let c = 1; c < cols; c++)
+    args.push(';', 'split-pane', '-V', '--size',
+      ((cols - c) / (cols - c + 1)).toFixed(4), ...pane(first(c)))
+  for (let c = cols - 1; c >= 0; c--) {
+    for (let r = 1; r < counts[c]; r++)
+      args.push(';', 'split-pane', '-H', '--size',
+        ((counts[c] - r) / (counts[c] - r + 1)).toFixed(4), ...pane(first(c) + r))
+    if (c > 0 && counts.slice(0, c).some(x => x > 1)) args.push(';', 'move-focus', 'left')
+  }
   return args
 }
 
@@ -60,9 +68,11 @@ export async function runWt(
 ): Promise<{ pids: (number | undefined)[] }> {
   if (!specs.length) return { pids: [] }
   const pidFiles = specs.map(pidFileFor)
-  mkdirSync(dirname(pidFiles[0]), { recursive: true })
+  const scriptFiles = specs.map(launcherScriptFor)
+  mkdirSync(PID_DIR, { recursive: true })
   for (const f of pidFiles) { try { rmSync(f) } catch { /* 无旧文件 */ } }
-  await execa('wt', buildWtArgs(specs, psHost, pidFiles))
+  specs.forEach((s, i) => writeFileSync(scriptFiles[i], launcherScriptContent(s.command, pidFiles[i])))
+  await execa('wt', buildWtArgs(specs, psHost, scriptFiles))
   const pids = await Promise.all(pidFiles.map(readPid))
   return { pids }
 }
