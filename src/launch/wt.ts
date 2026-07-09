@@ -6,10 +6,24 @@ import type { LaunchSpec } from './index.js'
 
 const PID_DIR = join(tmpdir(), 'bk-run')
 
-// 用 cwd + name 唯一定位 pidfile（每个 worktree 的 cwd 互不相同）。
+// 用 cwd + name 唯一定位运行时文件（每个 worktree 的 cwd 互不相同）。
+function runKeyFor(spec: LaunchSpec): string {
+  return `${spec.cwd}__${spec.name}`.replace(/[^A-Za-z0-9]+/g, '_')
+}
 export function pidFileFor(spec: LaunchSpec): string {
-  const key = `${spec.cwd}__${spec.name}`.replace(/[^A-Za-z0-9]+/g, '_')
-  return join(PID_DIR, `${key}.pid`)
+  return join(PID_DIR, `${runKeyFor(spec)}.pid`)
+}
+export function launcherScriptFor(spec: LaunchSpec): string {
+  return join(PID_DIR, `${runKeyFor(spec)}.ps1`)
+}
+
+// pane 启动脚本：先把 PowerShell 宿主 $PID 写进 pidfile，再跑服务命令。
+// 注：$PID 为宿主进程 PID，服务作为其子进程运行，bk stop 须 taskkill /T 才能树杀到子进程。
+// 命令以 -File 落盘执行——wt argv 中不出现用户命令文本，
+// 从根上避免 execa→wt→PowerShell 三层引号/元字符（; " & …）转义问题。
+export function launcherScriptContent(command: string, pidFile: string): string {
+  const escaped = pidFile.replace(/'/g, "''")
+  return `$PID | Out-File -Encoding ascii '${escaped}'\n${command}\n`
 }
 
 // pane 命令：PowerShell 先把自身 $PID 写进 pidfile，再跑原命令。
