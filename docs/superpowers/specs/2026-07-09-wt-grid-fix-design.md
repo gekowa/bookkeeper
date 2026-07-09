@@ -63,7 +63,7 @@ gridShape(n): number[]   // colCounts，长度即列数
   <服务命令>
   ```
 
-  pidfile 路径按 PowerShell 单引号规则转义（`'` → `''`）。服务命令原样落盘（与今日 `-Command` 尾部语义一致，仍由 PowerShell 解析）。
+  pidfile 路径按 PowerShell 单引号规则转义（`'` → `''`）。服务命令原样落盘（与今日 `-Command` 尾部语义一致，仍由 PowerShell 解析）。**脚本以 UTF-8 BOM 开头**——PowerShell 5.1 对无 BOM 文件按 ANSI 解析，非 ASCII 命令或含非 ASCII 用户名的 pidfile 路径会乱码致 PID 采集失败；`pwsh` 不受影响（审查发现，2026-07-09 裁决补入）。
 - pane 命令固定为：`<psHost> -NoExit -ExecutionPolicy Bypass -File <脚本路径>`——wt argv 中不再出现任何用户命令文本。`-ExecutionPolicy Bypass` 兼容 Restricted 默认策略机器，`pwsh`/`powershell` 通用。
 
 ### 3. 网格构造序列（`buildWtArgs` 重写）

@@ -32,6 +32,10 @@ WT 构造序列（`split-pane` 只作用于聚焦 pane、切后焦点在新 pane
 
 wt argv 的子命令顺序 ≠ 服务下标顺序（构造顺序为：各列首格左→右，再右→左补各列行），由列优先下标映射保证每个 pane 拿到正确服务。
 
+## 与计划代码的一处偏差（已裁决，2026-07-09）
+
+Task 3 审查发现：计划逐字代码把 `.ps1` 以无 BOM UTF-8 落盘，而 PowerShell 5.1 对无 BOM 脚本按 ANSI 解析——非 ASCII 命令或含非 ASCII 用户名的 pidfile 路径会乱码致 PID 采集失败。用户裁决修复：`launcherScriptContent` 返回值前置 `\uFEFF`（BOM），测试同步锁定该契约（commit `df5ccfb`）。本文 Task 2/3 代码块中的该函数与相关断言以修复后形态为准。
+
 ---
 
 ### Task 1: `gridShape` 共用网格形状（iterm 接入）
