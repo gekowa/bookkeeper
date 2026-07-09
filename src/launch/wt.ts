@@ -22,9 +22,10 @@ export function launcherScriptFor(spec: LaunchSpec): string {
 // 注：$PID 为宿主进程 PID，服务作为其子进程运行，bk stop 须 taskkill /T 才能树杀到子进程。
 // 命令以 -File 落盘执行——wt argv 中不出现用户命令文本，
 // 从根上避免 execa→wt→PowerShell 三层引号/元字符（; " & …）转义问题。
+// BOM 让 PowerShell 5.1（无 BOM 按 ANSI 解析）正确读 UTF-8；pwsh 不受影响。
 export function launcherScriptContent(command: string, pidFile: string): string {
   const escaped = pidFile.replace(/'/g, "''")
-  return `$PID | Out-File -Encoding ascii '${escaped}'\n${command}\n`
+  return `\uFEFF$PID | Out-File -Encoding ascii '${escaped}'\n${command}\n`
 }
 
 // 构建 wt argv：planGrid 同款均匀网格（列优先），聚焦相对构造。

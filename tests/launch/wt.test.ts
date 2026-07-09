@@ -18,9 +18,12 @@ describe('运行时文件路径', () => {
 })
 
 describe('launcherScriptContent', () => {
+  it('以 UTF-8 BOM 开头（PowerShell 5.1 无 BOM 按 ANSI 解析）', () => {
+    expect(launcherScriptContent('x', 'C:\\tmp\\x.pid').startsWith('\uFEFF')).toBe(true)
+  })
   it('第一行写宿主 $PID 到 pidfile，第二行原命令', () => {
     expect(launcherScriptContent('npm run dev', 'C:\\tmp\\x.pid'))
-      .toBe("$PID | Out-File -Encoding ascii 'C:\\tmp\\x.pid'\nnpm run dev\n")
+      .toBe("\uFEFF$PID | Out-File -Encoding ascii 'C:\\tmp\\x.pid'\nnpm run dev\n")
   })
   it("pidfile 路径中的单引号按 PowerShell 规则转义（' → ''）", () => {
     expect(launcherScriptContent('x', "C:\\it's\\x.pid")).toContain("'C:\\it''s\\x.pid'")
