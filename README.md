@@ -234,7 +234,7 @@ bk restart [service]   # 重启 = 停止 + 重读 bk_config.yml 后重新启动
 
 `bk start` 在 Windows 上自动选择启动方式：
 
-- **装了 Windows Terminal（`wt.exe`）** → 用 `wt`：在一个窗口里平铺多个 pane，每个 pane 跑一个服务（最接近 tmux/iTerm 的体验）。
+- **装了 Windows Terminal（`wt.exe`）** → 用 `wt`：在一个窗口里按**均匀网格**平铺 pane（列优先：4 服务 2×2、6 服务 3 列 × 2 行、10 服务 4 列 3+3+2+2），每个 pane 跑一个服务（最接近 tmux/iTerm 的体验）。pane 标题设为服务名（可能被 shell 自身标题覆盖）。需较新版本 Windows Terminal（≥1.7，2021 年后版本均满足）。
 - **没装** → 用 `win`：每个服务起一个独立的 PowerShell 窗口。
 
 服务宿主优先用 PowerShell 7（`pwsh`），没有则回退系统自带的 `powershell` 5.1。
@@ -248,7 +248,7 @@ bk restart [service]   # 重启 = 停止 + 重读 bk_config.yml 后重新启动
 ### 已知限制
 
 - 服务的 **`command` 覆盖**里若用 `&&`，在仅有 PowerShell 5.1 的机器上不可用——请装 PowerShell 7（`pwsh`），或拆成单条命令。内置默认启动命令都是单条命令，不受影响。
-- `wt` 策略下，服务 `command` 覆盖中含有 `;`（分号）会被 `wt.exe` 误作子命令分隔符，导致拆分成多个 pane；避免在 Windows 的 `command` 覆盖里用 `;`（内置默认命令不含 `;`，不受影响）。
+- pane 数极多时 Windows Terminal 会因最小 pane 尺寸拒绝 split，对应服务不启动（默认窗口尺寸实测 10 个 pane OK）。服务更多时可在 WT 设置调大默认启动窗口（`initialCols`/`initialRows`）——`bk start` 每次开新窗口，放大现有窗口对下次启动无效。
 - `wt` 下被 `stop` 的 pane 会显示「进程已退出」但 pane 不会自动关闭，需手动关（与 tmux 死 pane 同理）。
 
 ### 观测
