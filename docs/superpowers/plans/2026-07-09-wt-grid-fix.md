@@ -32,9 +32,12 @@ WT 构造序列（`split-pane` 只作用于聚焦 pane、切后焦点在新 pane
 
 wt argv 的子命令顺序 ≠ 服务下标顺序（构造顺序为：各列首格左→右，再右→左补各列行），由列优先下标映射保证每个 pane 拿到正确服务。
 
-## 与计划代码的一处偏差（已裁决，2026-07-09）
+## 与计划代码的两处偏差（均已裁决，2026-07-09）
 
-Task 3 审查发现：计划逐字代码把 `.ps1` 以无 BOM UTF-8 落盘，而 PowerShell 5.1 对无 BOM 脚本按 ANSI 解析——非 ASCII 命令或含非 ASCII 用户名的 pidfile 路径会乱码致 PID 采集失败。用户裁决修复：`launcherScriptContent` 返回值前置 `\uFEFF`（BOM），测试同步锁定该契约（commit `df5ccfb`）。本文 Task 2/3 代码块中的该函数与相关断言以修复后形态为准。
+1. **`.ps1` 加 UTF-8 BOM**（commit `df5ccfb`）：Task 3 审查发现计划逐字代码把 `.ps1` 以无 BOM UTF-8 落盘，而 PowerShell 5.1 对无 BOM 脚本按 ANSI 解析——非 ASCII 命令或含非 ASCII 用户名的 pidfile 路径会乱码致 PID 采集失败。用户裁决修复：`launcherScriptContent` 返回值前置 `\uFEFF`（BOM），测试同步锁定该契约。
+2. **具名窗口 + pidfile 门控逐步下发取代单条子命令链**（commit `99962f9`）：真机验收发现 WT 对链式 `split-pane` 的焦点指派与 pane 建立异步竞速，`-File` 载荷实测仅约 1/5 布局正确。用户裁决修复：`buildWtArgs`（拼单条 argv）改为 `buildWtSteps`（步骤列表，`WtStep = { args, paneIndex? }`），`runWt` 以 `-w bk-<时间戳>` 具名窗口逐步下发、每步 split 以该 pane 的 pidfile 出现为门控并顺带采集 PID；门控后 k=6/k=10 真机全部确定性正确，代价 `bk start` 增加约 1–4 秒。
+
+本文 Task 2/3 代码块中被上述两处取代的函数与断言，以修复后形态（`git show df5ccfb`、`git show 99962f9`）为准。
 
 ---
 
