@@ -234,7 +234,7 @@ bk restart [service]   # 重启 = 停止 + 重读 bk_config.yml 后重新启动
 
 `bk start` 在 Windows 上自动选择启动方式：
 
-- **装了 Windows Terminal（`wt.exe`）** → 用 `wt`：在一个窗口里按**均匀网格**平铺 pane（列优先：4 服务 2×2、6 服务 3 列 × 2 行、10 服务 4 列 3+3+2+2），每个 pane 跑一个服务（最接近 tmux/iTerm 的体验）。pane 标题设为服务名（可能被 shell 自身标题覆盖）。需较新版本 Windows Terminal（≥1.7，2021 年后版本均满足）。
+- **装了 Windows Terminal（`wt.exe`）** → 用 `wt`：在一个窗口里按**均匀网格**平铺 pane（列优先：4 服务 2×2、6 服务 3 列 × 2 行、10 服务 4 列 3+3+2+2），每个 pane 跑一个服务（最接近 tmux/iTerm 的体验）。pane 标题设为服务名（可能被 shell 自身标题覆盖）。需较新版本 Windows Terminal（≥1.7，2021 年后版本均满足）。布局按序逐 pane 构造（规避 WT 焦点竞态），服务较多时 `bk start` 需多等数秒。
 - **没装** → 用 `win`：每个服务起一个独立的 PowerShell 窗口。
 
 服务宿主优先用 PowerShell 7（`pwsh`），没有则回退系统自带的 `powershell` 5.1。
