@@ -209,7 +209,7 @@ $ bk worktree create feature/login
 bk start [service]
 ```
 
-把每个 service 的启动命令**在其 `dir` 下**跑起来：自动探测 **tmux → iTerm → 降级打印**，每个 service 一个 pane（`--tmux` / `--iterm` / `--print` 可强制）。无端口 worker（arq/celery）和普通服务一样在 pane 中启动。**bk 仍不守护进程**（不做崩溃自动重启、不做健康检查），但它记住自己启动了什么，因此可用 `bk stop` / `bk restart` 停止或重启（见下）。
+把每个 service 的启动命令**在其 `dir` 下**跑起来：自动探测 **tmux → iTerm → 降级打印**，Windows 上则自动选用 **Windows Terminal** 单窗口网格平铺（已完整支持，详见「[Windows 支持](#windows-支持)」），每个 service 一个 pane（`--tmux` / `--iterm` / `--print` 可强制）。无端口 worker（arq/celery）和普通服务一样在 pane 中启动。**bk 仍不守护进程**（不做崩溃自动重启、不做健康检查），但它记住自己启动了什么，因此可用 `bk stop` / `bk restart` 停止或重启（见下）。
 
 ### 停止 / 重启服务
 
@@ -231,6 +231,8 @@ bk restart [service]   # 重启 = 停止 + 重读 bk_config.yml 后重新启动
 > **tmux 注意**：单个服务的 `restart` 若其余服务仍在同一 tmux session 中运行，可能因重建同名 session 冲突而报错——改用整组 `bk restart`（不带 service），或 `bk stop` 后再 `bk start`。
 
 ## Windows 支持
+
+Windows Terminal 集成现已**完整支持**：单窗口均匀网格平铺全部服务 pane、布局确定性构造、`stop`/`restart` 精确停到 pane 内进程，体验与 tmux/iTerm 完全对齐。
 
 `bk start` 在 Windows 上自动选择启动方式：
 
