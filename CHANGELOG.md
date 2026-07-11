@@ -2,6 +2,12 @@
 
 本文件记录 BookKeeper（bk）的版本变更。
 
+## [0.0.12] - 2026-07-11
+
+### Changed
+
+- Windows 支持（0.0.10 引入、0.0.11 修复 wt 网格）随 `win-support` 分支并入主干。README 在 `bk start` 探测链与「Windows 支持」章节声明 Windows Terminal 集成已**完整支持**。
+
 ## [0.0.11] - 2026-07-09
 
 ### Fixed
