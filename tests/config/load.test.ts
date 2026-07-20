@@ -91,6 +91,34 @@ infra: {}
 `)
     expect(loadConfig(root).services[0].envs).toEqual({ VITE_API_BASE: 'http://localhost:{backend.port}' })
   })
+  it('envs 标量值（数字/布尔）强转为字符串，避免下游 tmpl.replace 崩溃', () => {
+    write(`project_name: foo
+services:
+  api:
+    type: django
+    port_base: 10000
+    envs:
+      DB_PORT: 15236
+      ENABLED: true
+      RATIO: 0.5
+      PLAIN: hello
+infra: {}
+`)
+    const envs = loadConfig(root).services[0].envs
+    expect(envs).toEqual({ DB_PORT: '15236', ENABLED: 'true', RATIO: '0.5', PLAIN: 'hello' })
+  })
+  it('envs 含 null / 嵌套对象 → 抛 CONFIG_INVALID', () => {
+    write(`project_name: foo
+services:
+  api:
+    type: django
+    port_base: 10000
+    envs:
+      BAD: { nested: x }
+infra: {}
+`)
+    expect(() => loadConfig(root)).toThrow(/CONFIG_INVALID|envs\.BAD|标量/)
+  })
   it('envs 非映射（字符串/列表）→ 抛 CONFIG_INVALID', () => {
     write(`project_name: foo
 services:
