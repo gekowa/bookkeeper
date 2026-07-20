@@ -1,5 +1,9 @@
 {
   "name": "bookkeeper-cli",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gekowa/bookkeeper.git"
+  },
   "version": "0.0.14",
   "type": "module",
   "bin": {
