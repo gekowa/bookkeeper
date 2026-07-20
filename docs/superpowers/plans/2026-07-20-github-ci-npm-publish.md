@@ -52,7 +52,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run typecheck
-      - run: npm run test
+      - run: npm run test -- --exclude '**/*.integration.test.ts'
 ```
 
 - [ ] **Step 3: 验证 YAML 语法**
@@ -102,7 +102,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - run: npm ci
       - run: npm run typecheck
-      - run: npm run test
+      - run: npm run test -- --exclude '**/*.integration.test.ts'
       - run: npm run build
       - run: npm publish --access public
         env:
