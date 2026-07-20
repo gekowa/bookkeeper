@@ -4,7 +4,8 @@ import type { LaunchSpec } from './index.js'
 export async function runTmux(specs: LaunchSpec[]): Promise<{ session: string; paneIds: string[] }> {
   if (!specs.length) return { session: '', paneIds: [] }
   const [first, ...rest] = specs
-  const session = `bk-${first.cwd.split('/').pop()}`
+  const lastSeg = first.cwd.split(/[\\/]/).filter(Boolean).pop() ?? ''
+  const session = `bk-${lastSeg}`
   const paneIds: string[] = []
   const r0 = await execa('tmux',
     ['new-session', '-d', '-s', session, '-c', first.cwd, '-P', '-F', '#{pane_id}', first.command])

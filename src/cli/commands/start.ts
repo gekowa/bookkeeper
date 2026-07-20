@@ -4,6 +4,7 @@ import { readState, withState } from '../../state/store.js'
 import { findSetByWorktree } from '../../core/deallocator.js'
 import { buildLaunchSpecs, selectStrategy, runLaunch, type Strategy } from '../../launch/index.js'
 import { reconcileRun } from '../../launch/liveness.js'
+import { hasWindowsTerminal } from '../../launch/platform.js'
 import { loadCtx, runCommand } from '../context.js'
 import { info } from '../output.js'
 import { BkError, Codes } from '../../core/errors.js'
@@ -32,7 +33,8 @@ export async function doStart(
     // 全死 → 落到下方正常启动
   }
   const specs = buildLaunchSpecs(ctx, state.sets[n], worktreeDir, service)
-  const launched = await runLaunch(specs, selectStrategy(env, force))
+  const hasWt = force ? false : await hasWindowsTerminal(env)
+  const launched = await runLaunch(specs, selectStrategy(env, { force, hasWt }))
   if (launched)
     await withState(project, s => {
       s.sets[n].run = { ...launched, startedAt: new Date().toISOString() }

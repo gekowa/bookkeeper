@@ -1,4 +1,5 @@
 // iTerm 均匀网格的几何计算（纯函数，不碰 AppleScript）
+import { gridShape } from './grid.js'
 export type SplitDir = 'v' | 'h'
 export interface SplitStep { target: number; dir: SplitDir; next: number }
 export interface GridPlan {
@@ -13,11 +14,8 @@ export function planGrid(n: number): GridPlan {
   if (n <= 0) return { paneCount: 0, steps: [], order: [] }
   if (n === 1) return { paneCount: 1, steps: [], order: [0] }
 
-  const cols = Math.ceil(Math.sqrt(n))
-  const rows = Math.ceil(n / cols)
-  // 列优先填充：前 fullCols 列放满 rows 格，其余列放 rows-1 格
-  const fullCols = n - cols * (rows - 1)
-  const colCounts = Array.from({ length: cols }, (_, c) => (c < fullCols ? rows : rows - 1))
+  const colCounts = gridShape(n)
+  const cols = colCounts.length
 
   const steps: SplitStep[] = []
   let nextId = 1

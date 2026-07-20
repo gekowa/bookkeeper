@@ -4,6 +4,7 @@ import { readState, withState } from '../../state/store.js'
 import { findSetByWorktree } from '../../core/deallocator.js'
 import { buildLaunchSpecs, selectStrategy, runLaunch } from '../../launch/index.js'
 import { stopRun } from '../../launch/stop.js'
+import { hasWindowsTerminal } from '../../launch/platform.js'
 import { mergeRun } from '../../core/run.js'
 import { BkError, Codes } from '../../core/errors.js'
 import { loadCtx, runCommand } from '../context.js'
@@ -32,7 +33,7 @@ export async function doRestart(
 
   // 2. 重读配置后启动；沿用原 run 的 strategy，无 run 则探测
   const specs = buildLaunchSpecs(ctx, state.sets[n], worktreeDir, service)
-  const strategy = run?.strategy ?? selectStrategy(env)
+  const strategy = run?.strategy ?? selectStrategy(env, { hasWt: await hasWindowsTerminal(env) })
   const launched = await runLaunch(specs, strategy)
 
   // 3. 把新句柄并回 run 记录

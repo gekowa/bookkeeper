@@ -14,8 +14,10 @@ const ctx = (services: any[]): Ctx =>
 describe('runPostAllocate', () => {
   it('在 service 的 dir 下运行、注入 BK_N 与该目录的 BK_*', async () => {
     mkdirSync(join(wt, 'backend'))
+    // 用 node -e 读 process.env，避免依赖具体 shell 的变量展开语法（sh 用 $VAR，cmd 用 %VAR%）
     const c = ctx([{ name: 'backend', type: 'django', dir: 'backend',
-      post_allocate: 'echo "$BK_N-$BK_DB_NAME" > out.txt' }])
+      post_allocate:
+        `node -e "require('fs').writeFileSync('out.txt', process.env.BK_N + '-' + process.env.BK_DB_NAME)"` }])
     const dirEnvs = new Map([['backend', { BK_DB_NAME: 'foo_2' }]])
     await runPostAllocate(c, wt, dirEnvs, 2)
     expect(readFileSync(join(wt, 'backend', 'out.txt'), 'utf8').trim()).toBe('2-foo_2')

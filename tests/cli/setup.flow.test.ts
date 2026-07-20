@@ -21,7 +21,7 @@ afterEach(() => {
 const provs = () => [createPortProvider(), fakeProvider({ kind: 'pg', plan: () => ({ database: 'foo_1' }) })]
 const ctx = (): Ctx => ({ projectRoot: wt, config: { project_name: 'foo', infra: {},
   services: [{ name: 'backend', type: 'django', port_base: 10000, dir: 'backend',
-    post_allocate: 'echo "$BK_N" > hook.txt' }] } })
+    post_allocate: `node -e "require('fs').writeFileSync('hook.txt', process.env.BK_N)"` }] } })
 
 describe('doSetup', () => {
   it('未分配的 worktree → 抛 NOT_IN_WORKTREE', async () => {

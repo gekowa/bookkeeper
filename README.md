@@ -264,7 +264,7 @@ $ bk worktree create feature/login
 bk start [service]
 ```
 
-把每个 service 的启动命令**在其 `dir` 下**跑起来：自动探测 **tmux → iTerm → 降级打印**，每个 service 一个 pane（`--tmux` / `--iterm` / `--print` 可强制）。无端口 worker（arq/celery）和普通服务一样在 pane 中启动。**bk 仍不守护进程**（不做崩溃自动重启、不做健康检查），但它记住自己启动了什么，因此可用 `bk stop` / `bk restart` 停止或重启（见下）。
+把每个 service 的启动命令**在其 `dir` 下**跑起来：自动探测 **tmux → iTerm → 降级打印**，Windows 上则自动选用 **Windows Terminal** 单窗口网格平铺（已完整支持，详见「[Windows 支持](#windows-支持)」），每个 service 一个 pane（`--tmux` / `--iterm` / `--print` 可强制）。无端口 worker（arq/celery）和普通服务一样在 pane 中启动。**bk 仍不守护进程**（不做崩溃自动重启、不做健康检查），但它记住自己启动了什么，因此可用 `bk stop` / `bk restart` 停止或重启（见下）。
 
 ### 停止 / 重启服务
 
@@ -284,6 +284,29 @@ bk restart [service]   # 重启 = 停止 + 重读 bk_config.yml 后重新启动
 > **iTerm 注意**：若你在 iTerm 偏好里开启了「关闭仍在运行任务的会话需确认」，`stop` 关闭 pane 时可能弹确认框。可在 iTerm → Settings → Profiles → Session（或 General）关掉运行中会话的关闭确认，让 `stop` 静默生效。
 
 > **tmux 注意**：单个服务的 `restart` 若其余服务仍在同一 tmux session 中运行，可能因重建同名 session 冲突而报错——改用整组 `bk restart`（不带 service），或 `bk stop` 后再 `bk start`。
+
+## Windows 支持
+
+Windows Terminal 集成现已**完整支持**：单窗口均匀网格平铺全部服务 pane、布局确定性构造、`stop`/`restart` 精确停到 pane 内进程，体验与 tmux/iTerm 完全对齐。
+
+`bk start` 在 Windows 上自动选择启动方式：
+
+- **装了 Windows Terminal（`wt.exe`）** → 用 `wt`：在一个窗口里按**均匀网格**平铺 pane（列优先：4 服务 2×2、6 服务 3 列 × 2 行、10 服务 4 列 3+3+2+2），每个 pane 跑一个服务（最接近 tmux/iTerm 的体验）。pane 标题设为服务名（可能被 shell 自身标题覆盖）。需较新版本 Windows Terminal（≥1.7，2021 年后版本均满足）。布局按序逐 pane 构造（规避 WT 焦点竞态），服务较多时 `bk start` 需多等数秒。
+- **没装** → 用 `win`：每个服务起一个独立的 PowerShell 窗口。
+
+服务宿主优先用 PowerShell 7（`pwsh`），没有则回退系统自带的 `powershell` 5.1。
+
+`bk stop` / `bk restart`：
+
+- 优先按 `bk start` 记录的 PID `taskkill /T /F` 杀整棵进程树。
+- PID 失效时，对**有端口**的服务按端口经 `Get-NetTCPConnection` 反查属主进程兜底。
+- 无端口的 worker（arq/celery）依赖 `wt` pane 自报的 pidfile。
+
+### 已知限制
+
+- 服务的 **`command` 覆盖**里若用 `&&`，在仅有 PowerShell 5.1 的机器上不可用——请装 PowerShell 7（`pwsh`），或拆成单条命令。内置默认启动命令都是单条命令，不受影响。
+- pane 数极多时 Windows Terminal 会因最小 pane 尺寸拒绝 split，对应服务不启动（默认窗口尺寸实测 10 个 pane OK）。服务更多时可在 WT 设置调大默认启动窗口（`initialCols`/`initialRows`）——`bk start` 每次开新窗口，放大现有窗口对下次启动无效。
+- `wt` 下被 `stop` 的 pane 会显示「进程已退出」但 pane 不会自动关闭，需手动关（与 tmux 死 pane 同理）。
 
 ### 观测
 

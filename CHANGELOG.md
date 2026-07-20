@@ -2,6 +2,19 @@
 
 本文件记录 BookKeeper（bk）的版本变更。
 
+## [0.0.14] - 2026-07-20
+
+### Added
+
+- **Windows 支持**：`bk start` 在 Windows 上按是否安装 Windows Terminal 自动选策略——有 `wt.exe` 用 `wt`（单窗口平铺多 pane），否则用 `win`（每服务一个独立 PowerShell 窗口）。`stop`/`restart` 据此停服：优先按记录的 PID `taskkill /T /F` 杀整棵进程树，PID 缺失时按服务端口经 `Get-NetTCPConnection` 查属主兜底（无端口的 worker 依赖 wt pane 自报的 pidfile）。服务宿主优先 `pwsh`（PowerShell 7）、否则内置 `powershell` 5.1。README 在 `bk start` 探测链与「Windows 支持」章节声明 Windows Terminal 集成已**完整支持**。
+
+### Fixed
+
+- `wt` 策略：pane 命令此前以 `-Command` 内嵌字符串传入，写 pidfile 与服务命令之间的 `;` 被 `wt.exe` 误作子命令分隔符——服务命令被拆成独立 tab 且启动失败（`0x80070002`），而 pidfile 已写入导致 `bk start` 假成功。现改为每服务生成启动脚本（`<tmp>/bk-run/<key>.ps1`），pane 以 `-ExecutionPolicy Bypass -File` 执行，`wt` 命令行中不再出现用户命令文本，`;`/引号等元字符问题从根上消失（服务 `command` 覆盖中不能含 `;` 的限制随之解除）。
+- `wt` 策略：分屏从「对最新 pane 反复对半切」改为与 iTerm 一致的均匀网格（列优先，如 4 服务 2×2、6 服务 3 列 × 2 行）。此前瀑布式切法使 pane 面积按 1/2、1/4、1/8…塌缩，5 个以上难以阅读，10 个服务时末尾 split 触及 Windows Terminal 最小 pane 尺寸而失败、对应服务不启动（真机实测 8/10）；均匀网格构造实测 10/10 全部启动。布局构造改为具名窗口逐命令下发、以 pidfile 门控每步 split（等 pane 内 PowerShell 就绪再切下一刀），规避 Windows Terminal 链式子命令的焦点竞态（实测链式下发仅约 1/5 布局正确，门控后确定性正确；代价为 `bk start` 增加约 1–4 秒）。
+- `post_allocate` 钩子改用平台默认 shell 执行（Unix `/bin/sh`、Windows `cmd.exe`），此前硬编码 `sh -c` 在 Windows 上不可用，导致带 `post_allocate` 的 `bk allocate` 失败。
+- `tmux` 会话名改用 `path.basename` 推导，修正 Windows 反斜杠 worktree 路径下会话名被整条路径污染的问题。
+
 ## [0.0.13] - 2026-07-05
 
 ### Added
