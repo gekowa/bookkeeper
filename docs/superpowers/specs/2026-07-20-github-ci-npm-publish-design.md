@@ -56,7 +56,9 @@
 5. `npm run test`
 6. `npm run build`（tsup → dist/）
 7. `npm publish --access public`
-   - 环境变量 `NODE_AUTH_TOKEN` 取自 `${{ secrets.NPM_TOKEN }}`
+   - `setup-node` 配置 `registry-url` 后会自动写 `.npmrc`，引用环境变量 `NODE_AUTH_TOKEN`
+   - workflow 中把 GitHub Secret 映射过去：`NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`
+   - 两个名字各管一层：`NPM_TOKEN` 是 GitHub Secrets 里的名字，`NODE_AUTH_TOKEN` 是 setup-node 约定的变量名
 
 **发版流程**：
 ```bash
