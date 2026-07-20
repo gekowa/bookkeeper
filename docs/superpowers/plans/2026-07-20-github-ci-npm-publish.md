@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Node 版本：20（和 `engines` 字段一致）
-- 包名：`bookeeper-cli`
+- 包名：`bookkeeper-cli`
 - npm 访问级别：public
 - 集成测试不在 CI 跑（`describe.runIf(hasDocker())` 守卫自动跳过）
 - tag 格式：`v*`（如 `v0.0.15`）
@@ -132,11 +132,11 @@ git commit -m "ci: add npm publish workflow (tag-triggered)"
 - Modify: `package.json`
 
 **Interfaces:**
-- Produces: 包名改为 `bookeeper-cli`，添加 `repository` 字段
+- Produces: 包名改为 `bookkeeper-cli`，添加 `repository` 字段
 
 - [ ] **Step 1: 修改 package.json**
 
-将 `"name": "bookkeeper"` 改为 `"name": "bookeeper-cli"`，在 `name` 之后添加：
+将 `"name": "bookkeeper"` 改为 `"name": "bookkeeper-cli"`，在 `name` 之后添加：
 
 ```json
 "repository": {
@@ -148,7 +148,7 @@ git commit -m "ci: add npm publish workflow (tag-triggered)"
 完整 diff：
 ```diff
 - "name": "bookkeeper",
-+ "name": "bookeeper-cli",
++ "name": "bookkeeper-cli",
 + "repository": {
 +   "type": "git",
 +   "url": "https://github.com/gekowa/bookkeeper.git"
@@ -170,13 +170,13 @@ Expected: `OK`
 npm pkg get name
 ```
 
-Expected: `"bookeeper-cli"`
+Expected: `"bookkeeper-cli"`
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add package.json
-git commit -m "chore: rename package to bookeeper-cli, add repository field"
+git commit -m "chore: rename package to bookkeeper-cli, add repository field"
 ```
 
 ---

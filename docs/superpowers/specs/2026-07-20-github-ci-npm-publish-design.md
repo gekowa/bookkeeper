@@ -6,7 +6,7 @@
 ## 目标
 
 1. PR 提交时自动运行 typecheck + 单元测试，不通过则 fail
-2. 推送 `v*` tag 时自动发布新版本到 npm（包名 `bookeeper-cli`）
+2. 推送 `v*` tag 时自动发布新版本到 npm（包名 `bookkeeper-cli`）
 
 ## 决策记录
 
@@ -16,7 +16,7 @@
 | 发版触发 | git tag `v*` | 安全，发版完全由维护者控制 |
 | Node 版本 | 仅 20 | 和 `engines` 一致，够用 |
 | 集成测试 | 不在 CI 跑 | 需要 Docker，本地跑即可；CI 用 `--exclude '**/*.integration.test.ts'` 显式排除（`hasDocker()` 在 ubuntu-latest 上返回 true，`describe.runIf` 守卫不会自动跳过） |
-| npm 包名 | `bookeeper-cli` | 用户指定 |
+| npm 包名 | `bookkeeper-cli` | 用户指定 |
 | npm 访问级别 | public | 公开 CLI 工具 |
 
 ## 设计
@@ -77,7 +77,7 @@
 
 ```diff
 - "name": "bookkeeper",
-+ "name": "bookeeper-cli",
++ "name": "bookkeeper-cli",
 + "repository": {
 +   "type": "git",
 +   "url": "https://github.com/gekowa/bookkeeper.git"
